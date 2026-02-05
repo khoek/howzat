@@ -1,0 +1,33 @@
+[package]
+name = "howzat"
+version = "0.3.0"
+edition = "2024"
+license = "AGPL-3.0-only"
+description = "Dynamic description method primitives for polyhedra with pluggable numeric backends."
+readme = "README.md"
+
+[features]
+default = ["rug", "dashu", "simd"]
+rug = ["calculo/rug"]
+dashu = ["calculo/dashu"]
+simd = ["calculo/simd", "hullabaloo/simd"]
+
+[dependencies]
+calculo = { path = "../../ferramentum/calculo", version = "0.3.0", default-features = false }
+hullabaloo = { path = "../hullabaloo", version = "0.3.0", default-features = false }
+
+ahash = "0.8"
+smallvec = "1"
+
+[dev-dependencies]
+cddlib-rs = { path = "../cddlib-rs", version = "0.3.0" }
+
+rstest = "0.26"
+
+anyhow = "1"
+rand = "0.9"
+reqwest = { version = "0.13", default-features = false, features = ["blocking", "json", "query", "rustls"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["fmt"] }

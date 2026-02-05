@@ -1,0 +1,28 @@
+[package]
+name = "ppl-rs"
+version = "0.3.0"
+edition = "2024"
+license = "AGPL-3.0-only"
+description = "Idiomatic Rust bindings around the Parma Polyhedra Library (PPL)."
+readme = "README.md"
+publish = false
+
+[lib]
+name = "ppl_rs"
+path = "src/lib.rs"
+
+[features]
+default = ["gmp"]
+gmp = ["ppl-sys/gmp"]
+i64 = ["ppl-sys/i64"]
+pic = ["ppl-sys/pic"]
+use-system-gmp = ["ppl-sys/use-system-gmp"]
+
+[dependencies]
+ppl-sys = { path = "../ppl-sys", version = "0.3.0", default-features = false }
+hullabaloo = { path = "../hullabaloo", version = "0.3.0" }
+calculo = { path = "../../ferramentum/calculo", version = "0.3.0", default-features = false, features = ["rug"] }
+
+thiserror = "2"
+libc = "0.2"
+rug = { version = "1", default-features = false, features = ["integer", "std"] }

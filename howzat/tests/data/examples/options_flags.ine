@@ -1,0 +1,11 @@
+* minimal example for adjacency/incidence output flags
+H-representation
+begin
+    2    3   real
+  1  0  0
+  1  1  0
+end
+adjacency
+incidence
+inputadjacency
+inputincidence

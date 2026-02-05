@@ -1,0 +1,27 @@
+[package]
+name = "cddlib-rs"
+version = "0.3.0"
+edition = "2024"
+license = "AGPL-3.0-only"
+description = "Idiomatic Rust bindings around cddlib."
+readme = "README.md"
+
+[lib]
+name = "cddlib_rs"
+path = "src/lib.rs"
+
+[features]
+f64 = ["cddlib-sys/f64"]
+gmp = ["cddlib-sys/gmp"]
+gmprational = ["cddlib-sys/gmprational"]
+tools = ["cddlib-sys/tools"]
+pic = ["cddlib-sys/pic"]
+use-system-gmp = ["cddlib-sys/use-system-gmp"]
+default = ["f64", "gmp", "gmprational"]
+
+[dependencies]
+cddlib-sys = { path = "../cddlib-sys", version = "0.3.0", default-features = false }
+hullabaloo = { path = "../hullabaloo", version = "0.3.0" }
+
+thiserror = "2"
+libc = "0.2"

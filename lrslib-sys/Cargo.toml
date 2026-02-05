@@ -1,0 +1,27 @@
+[package]
+name = "lrslib-sys"
+version = "0.3.0"
+edition = "2024"
+license = "GPL-2.0-or-later"
+description = "Raw FFI bindings to lrslib."
+links = "lrslib"
+build = "build.rs"
+readme = "README.md"
+
+[lib]
+name = "lrslib_sys"
+path = "src/lib.rs"
+
+[features]
+default = []
+gmp = ["dep:gmp-mpfr-sys"]
+use-system-gmp = ["dep:gmp-mpfr-sys", "gmp-mpfr-sys/use-system-libs"]
+
+[dependencies]
+gmp-mpfr-sys = { version = "~1.6", default-features = false, optional = true, features = ["c-no-tests"] }
+
+[build-dependencies]
+syntheon = { path = "../../ferramentum/syntheon", version = "0.3.0" }
+
+bindgen = "0.72"
+cc = "1"

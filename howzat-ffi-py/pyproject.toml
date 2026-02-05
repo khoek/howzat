@@ -1,0 +1,23 @@
+[build-system]
+requires = ["maturin>=1.8", "numpy>=1.23"]
+build-backend = "maturin"
+
+[project]
+name = "howzat"
+version = "0.3.0"
+description = "High-performance polytope backends via Rust FFI bindings to howzat"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+dependencies = ["numpy>=1.23"]
+classifiers = [
+  "License :: OSI Approved :: GNU Affero General Public License v3",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Rust",
+  "Operating System :: OS Independent",
+]
+
+[tool.maturin]
+bindings = "pyo3"
+module-name = "howzat"
+profile = "release-lto"

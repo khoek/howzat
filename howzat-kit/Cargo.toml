@@ -1,0 +1,35 @@
+[package]
+name = "howzat-kit"
+version = "0.3.0"
+edition = "2024"
+license = "AGPL-3.0-only"
+description = "Backend spec parsing and high-performance runner API for howzat."
+readme = "README.md"
+publish = true
+
+[features]
+default = []
+pic = ["cddlib-rs/pic", "ppl-rs/pic"]
+use-system-gmp = [
+    "dep:gmp-mpfr-sys",
+    "cddlib-rs/use-system-gmp",
+    "lrslib-rs/use-system-gmp",
+    "ppl-rs/use-system-gmp",
+]
+
+[dependencies]
+calculo = { path = "../../ferramentum/calculo", version = "0.3.0" }
+howzat = { path = "../howzat", version = "0.3.0" }
+hullabaloo = { path = "../hullabaloo", version = "0.3.0", features = ["serde"] }
+cddlib-rs = { path = "../cddlib-rs", version = "0.3.0", features = ["gmprational"] }
+lrslib-rs = { path = "../lrslib-rs", version = "0.3.0", features = ["gmp"] }
+ppl-rs = { path = "../ppl-rs", version = "0.3.0", default-features = false, features = ["gmp"] }
+
+gmp-mpfr-sys = { version = "~1.6", default-features = false, optional = true, features = ["use-system-libs"] }
+anyhow = "1"
+serde = { version = "1", features = ["derive"] }
+tracing = "0.1"
+rug = { version = "1", default-features = false, features = ["integer", "rational", "std"] }
+
+[dev-dependencies]
+serde_json = { version = "1", features = ["float_roundtrip"] }

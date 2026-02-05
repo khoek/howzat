@@ -1,0 +1,32 @@
+{
+  "1": {
+    "dimension": 8,
+    "vertices": 20,
+    "facets": 1099,
+    "ridges": 4439
+  },
+  "2": {
+    "dimension": 8,
+    "vertices": 20,
+    "facets": 988,
+    "ridges": 3997
+  },
+  "3": {
+    "dimension": 8,
+    "vertices": 20,
+    "facets": 921,
+    "ridges": 3730
+  },
+  "5": {
+    "dimension": 8,
+    "vertices": 20,
+    "facets": 966,
+    "ridges": 3909
+  },
+  "8": {
+    "dimension": 8,
+    "vertices": 20,
+    "facets": 922,
+    "ridges": 3728
+  }
+}

@@ -1,0 +1,29 @@
+[package]
+name = "cddlib-sys"
+version = "0.3.0"
+edition = "2024"
+license = "GPL-2.0-or-later"
+description = "Raw FFI bindings to cddlib."
+links = "cddlib"
+build = "build.rs"
+readme = "README.md"
+
+[lib]
+name = "cddlib_sys"
+path = "src/lib.rs"
+
+[features]
+f64 = []
+gmp = ["dep:gmp-mpfr-sys"]
+gmprational = ["dep:gmp-mpfr-sys"]
+tools = []
+pic = []
+use-system-gmp = ["dep:gmp-mpfr-sys", "gmp-mpfr-sys/use-system-libs"]
+default = ["f64", "gmp", "gmprational"]
+
+[dependencies]
+gmp-mpfr-sys = { version = "~1.6", default-features = false, optional = true, features = ["c-no-tests"] }
+
+[build-dependencies]
+syntheon = { path = "../../ferramentum/syntheon", version = "0.3.0" }
+bindgen = "0.72"
