@@ -15,9 +15,9 @@ default = []
 use-system-gmp = ["howzat-kit/use-system-gmp"]
 
 [dependencies]
-calculo = { path = "../../ferramentum/calculo", version = "0.3.0" }
 howzat-kit = { path = "../howzat-kit", version = "0.3.0", features = ["pic"] }
 hullabaloo = { path = "../hullabaloo", version = "0.3.0" }
 
+calculo = { version = "0.3.0" }
 gmp-mpfr-sys = { version = "~1.6", default-features = false }
 rug = { version = "1", default-features = false, features = ["integer", "rational", "std"] }

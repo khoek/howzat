@@ -21,7 +21,7 @@ use-system-gmp = ["dep:gmp-mpfr-sys", "gmp-mpfr-sys/use-system-libs"]
 gmp-mpfr-sys = { version = "~1.6", default-features = false, optional = true, features = ["c-no-tests"] }
 
 [build-dependencies]
-syntheon = { path = "../../ferramentum/syntheon", version = "0.3.0" }
+syntheon = { version = "0.3.0" }
 
 bindgen = "0.72"
 cc = "1"

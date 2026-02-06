@@ -18,7 +18,7 @@ use-system-gmp = ["lrslib-sys/use-system-gmp"]
 [dependencies]
 lrslib-sys = { path = "../lrslib-sys", version = "0.3.0" }
 hullabaloo = { path = "../hullabaloo", version = "0.3.0" }
-calculo = { path = "../../ferramentum/calculo", version = "0.3.0", default-features = false, features = ["rug"] }
+calculo = { version = "0.3.0", default-features = false, features = ["rug"] }
 
 gmp-mpfr-sys = { version = "~1.6", default-features = false, optional = true }
 thiserror = "2"

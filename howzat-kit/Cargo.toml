@@ -18,13 +18,13 @@ use-system-gmp = [
 ]
 
 [dependencies]
-calculo = { path = "../../ferramentum/calculo", version = "0.3.0" }
 howzat = { path = "../howzat", version = "0.3.0" }
 hullabaloo = { path = "../hullabaloo", version = "0.3.0", features = ["serde"] }
 cddlib-rs = { path = "../cddlib-rs", version = "0.3.0", features = ["gmprational"] }
 lrslib-rs = { path = "../lrslib-rs", version = "0.3.0", features = ["gmp"] }
 ppl-rs = { path = "../ppl-rs", version = "0.3.0", default-features = false, features = ["gmp"] }
 
+calculo = { version = "0.3.0" }
 gmp-mpfr-sys = { version = "~1.6", default-features = false, optional = true, features = ["use-system-libs"] }
 anyhow = "1"
 serde = { version = "1", features = ["derive"] }

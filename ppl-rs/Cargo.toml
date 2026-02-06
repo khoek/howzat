@@ -21,7 +21,7 @@ use-system-gmp = ["ppl-sys/use-system-gmp"]
 [dependencies]
 ppl-sys = { path = "../ppl-sys", version = "0.3.0", default-features = false }
 hullabaloo = { path = "../hullabaloo", version = "0.3.0" }
-calculo = { path = "../../ferramentum/calculo", version = "0.3.0", default-features = false, features = ["rug"] }
+calculo = { version = "0.3.0", default-features = false, features = ["rug"] }
 
 thiserror = "2"
 libc = "0.2"

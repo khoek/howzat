@@ -1,0 +1,424 @@
+name: Bench
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+
+jobs:
+  bench-build-dev:
+    if: ${{ false }} # Disabled in CI: use release-lto only.
+    name: bench / build (dev)
+    runs-on: &bench_runs_on [self-hosted, linux]
+    timeout-minutes: 360
+    env:
+      BENCH_PROFILE: dev
+      CARGO_BUILD_FLAGS: ""
+      TARGET_DIR: debug
+    steps: &bench_build_steps
+      - uses: actions/checkout@v4
+
+      - name: Checkout kompute-hirsch
+        uses: actions/checkout@v4
+        with:
+          repository: khoek/kompute-hirsch
+          path: kompute-hirsch
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            kompute-hirsch -> kompute-hirsch/target
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            autoconf \
+            automake \
+            build-essential \
+            clang \
+            cmake \
+            libasound2 \
+            libatk-bridge2.0-0 \
+            libcairo2 \
+            libcups2 \
+            libclang-dev \
+            libgbm1 \
+            libnss3 \
+            libpango-1.0-0 \
+            libtool \
+            libxcomposite1 \
+            libxdamage1 \
+            libxfixes3 \
+            libxkbcommon0 \
+            libxrandr2 \
+            m4 \
+            pkg-config
+
+      - name: Patch kompute-hirsch to local polytopia crates
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p kompute-hirsch/.cargo
+          cat > kompute-hirsch/.cargo/config.toml <<'EOF'
+          [patch.crates-io]
+          hullabaloo = { path = "../hullabaloo" }
+          howzat = { path = "../howzat" }
+          howzat-kit = { path = "../howzat-kit" }
+          cddlib-rs = { path = "../cddlib-rs" }
+          lrslib-rs = { path = "../lrslib-rs" }
+          EOF
+
+      - name: Build hirsch
+        shell: bash
+        working-directory: kompute-hirsch
+        run: |
+          set -euo pipefail
+          cargo build ${CARGO_BUILD_FLAGS} --bin hirsch
+
+      - name: Upload hirsch binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: hirsch-${{ env.BENCH_PROFILE }}
+          path: kompute-hirsch/target/${{ env.TARGET_DIR }}/hirsch
+          if-no-files-found: error
+
+  bench-build-release:
+    if: ${{ false }} # Disabled in CI: use release-lto only.
+    name: bench / build (release)
+    runs-on: *bench_runs_on
+    timeout-minutes: 360
+    env:
+      BENCH_PROFILE: release
+      CARGO_BUILD_FLAGS: --release
+      TARGET_DIR: release
+    steps: *bench_build_steps
+
+  bench-build-release-lto:
+    name: bench / build (release-lto)
+    runs-on: *bench_runs_on
+    timeout-minutes: 360
+    env:
+      BENCH_PROFILE: release-lto
+      CARGO_BUILD_FLAGS: --profile release-lto
+      TARGET_DIR: release-lto
+    steps: *bench_build_steps
+
+  bench-matrix:
+    name: bench / matrix
+    runs-on: *bench_runs_on
+    outputs:
+      matrix: ${{ steps.gen.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: gen
+        name: Generate matrix
+        shell: bash
+        run: |
+          set -euo pipefail
+          matrix_json="$(python3 scripts/bench_matrix.py)"
+          echo "matrix=$matrix_json" >> "$GITHUB_OUTPUT"
+
+  bench-run-dev:
+    if: ${{ false }} # Disabled in CI: use release-lto only.
+    name: bench / run (dev, ${{ matrix.backend }}, shard=${{ matrix.shard }})
+    runs-on: *bench_runs_on
+    needs:
+      - bench-build-dev
+      - bench-matrix
+    timeout-minutes: 360
+    env:
+      BENCH_PROFILE: dev
+    strategy: &bench_run_strategy
+      fail-fast: false
+      matrix: ${{ fromJson(needs['bench-matrix'].outputs.matrix) }}
+
+    steps: &bench_run_steps
+      - uses: actions/checkout@v4
+
+      - name: Download hirsch binary
+        uses: actions/download-artifact@v4
+        with:
+          name: hirsch-${{ env.BENCH_PROFILE }}
+          path: kompute-hirsch/bin
+
+      - id: meta
+        name: Compute job metadata
+        shell: bash
+        working-directory: kompute-hirsch
+        run: |
+          set -euo pipefail
+          backend="${{ matrix.backend }}"
+          shard="${{ matrix.shard }}"
+          safe_backend="$(
+            printf '%s' "$backend" | sed -E 's/[^A-Za-z0-9]+/_/g; s/^_+//; s/_+$//'
+          )"
+          safe_shard="$(
+            printf '%s' "$shard" | sed -E 's/[^A-Za-z0-9]+/_/g; s/^_+//; s/_+$//'
+          )"
+          echo "backend=$backend" >> "$GITHUB_OUTPUT"
+          echo "shard=$shard" >> "$GITHUB_OUTPUT"
+          echo "profile=${BENCH_PROFILE}" >> "$GITHUB_OUTPUT"
+          echo "artifact_name=bench-${BENCH_PROFILE}-${safe_backend}-${safe_shard}" >> "$GITHUB_OUTPUT"
+
+      - name: Run bench
+        shell: bash
+        working-directory: kompute-hirsch
+        run: |
+          set -euo pipefail
+          mkdir -p bench_artifact
+          printf '%s\n' "backend=${{ steps.meta.outputs.backend }}" > bench_artifact/meta.txt
+          printf '%s\n' "profile=${{ steps.meta.outputs.profile }}" >> bench_artifact/meta.txt
+          printf '%s\n' "shard=${{ steps.meta.outputs.shard }}" >> bench_artifact/meta.txt
+          printf '%s\n' "n=${{ matrix.n }}" >> bench_artifact/meta.txt
+          printf '%s\n' "repeats=${{ matrix.repeats }}" >> bench_artifact/meta.txt
+          printf '%s\n' "extra_lo=${{ matrix.extra_lo }}" >> bench_artifact/meta.txt
+          printf '%s\n' "extra_hi=${{ matrix.extra_hi }}" >> bench_artifact/meta.txt
+          : > bench_artifact/result.log
+
+          chmod +x bin/hirsch
+          backend="${{ steps.meta.outputs.backend }}"
+          n="${{ matrix.n }}"
+          repeats="${{ matrix.repeats }}"
+          extra_lo="${{ matrix.extra_lo }}"
+          extra_hi="${{ matrix.extra_hi }}"
+
+          for mode in representation incidence adjacency; do
+            printf '%s\n' "mode=$mode" >> bench_artifact/meta.txt
+            for ((extra = extra_lo; extra <= extra_hi; extra++)); do
+              v=$((n + extra))
+              tuple="${n},${v},${repeats}"
+              printf '%s\n' "tuple=$tuple" >> bench_artifact/meta.txt
+              printf '%s\n' "=== mode=$mode tuple=$tuple ===" >> bench_artifact/result.log
+              bin/hirsch sandbox bench \
+                --kind drum \
+                --seed 1 \
+                --mode "$mode" \
+                --num-workers 1 \
+                --memory \
+                --timing \
+                --machine-readable \
+                --backend "$backend" \
+                -o n="$n" \
+                -o v="$v" \
+                --repeats "$repeats" \
+                2>&1 | tee -a bench_artifact/result.log
+            done
+          done
+
+      - name: Upload artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.meta.outputs.artifact_name }}
+          path: kompute-hirsch/bench_artifact
+          if-no-files-found: warn
+
+  bench-run-release:
+    if: ${{ false }} # Disabled in CI: use release-lto only.
+    name: bench / run (release, ${{ matrix.backend }}, shard=${{ matrix.shard }})
+    runs-on: *bench_runs_on
+    needs:
+      - bench-build-release
+      - bench-matrix
+    timeout-minutes: 360
+    env:
+      BENCH_PROFILE: release
+    strategy: *bench_run_strategy
+    steps: *bench_run_steps
+
+  bench-run-release-lto:
+    name: bench / run (release-lto, ${{ matrix.backend }}, shard=${{ matrix.shard }})
+    runs-on: *bench_runs_on
+    needs:
+      - bench-build-release-lto
+      - bench-matrix
+    timeout-minutes: 360
+    env:
+      BENCH_PROFILE: release-lto
+    strategy: *bench_run_strategy
+    steps: *bench_run_steps
+
+  bench-collate:
+    name: bench / collate
+    runs-on: *bench_runs_on
+    needs:
+      # - bench-run-dev
+      # - bench-run-release
+      - bench-run-release-lto
+    if: ${{ always() }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download release-lto artifacts
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          pattern: bench-release-lto-*
+          path: artifacts/release-lto
+
+      # - name: Download release artifacts
+      #   continue-on-error: true
+      #   uses: actions/download-artifact@v4
+      #   with:
+      #     pattern: bench-release-*
+      #     path: artifacts/release
+
+      # - name: Download dev artifacts
+      #   continue-on-error: true
+      #   uses: actions/download-artifact@v4
+      #   with:
+      #     pattern: bench-dev-*
+      #     path: artifacts/dev
+
+      - name: Install python dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install --upgrade plotly kaleido pandas
+          python3 - <<'PY'
+          from plotly.io._kaleido import kaleido_available, kaleido_major
+
+          if kaleido_available() and kaleido_major() >= 1:
+              import plotly.io as pio
+
+              print(pio.get_chrome())
+          else:
+              print("Skipping Chrome download: Kaleido v1+ not installed.")
+          PY
+
+      - name: Collate and plot
+        shell: bash
+        run: |
+          set -euo pipefail
+          for profile in release-lto; do
+            python3 scripts/bench_reports/collate_and_plot.py \
+              --input-dir "artifacts/${profile}" \
+              --out-dir "bench-reports/${profile}"
+          done
+
+      - name: Upload report artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-reports
+          path: bench-reports
+          if-no-files-found: warn
+
+  bench-mismatch-sweep:
+    name: bench / mismatch sweep (seed=${{ matrix.seed0 }}, n=${{ matrix.sweep.n }})
+    runs-on: *bench_runs_on
+    needs: bench-build-release-lto
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      matrix:
+        seed0:
+          - "6014675720939306953"
+          - "7671891871512613076"
+          - "3735928559"
+        sweep:
+          - n: 4
+            v: 5
+            repeats: 1000000
+          - n: 10
+            v: 11
+            repeats: 10000
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download hirsch binary
+        uses: actions/download-artifact@v4
+        with:
+          name: hirsch-release-lto
+          path: kompute-hirsch/bin
+
+      - name: Run mismatch sweep
+        shell: bash
+        working-directory: kompute-hirsch
+        run: |
+          set -euo pipefail
+          mkdir -p mismatch_artifact
+          n="${{ matrix.sweep.n }}"
+          v="${{ matrix.sweep.v }}"
+          repeats="${{ matrix.sweep.repeats }}"
+          printf '%s\n' "seed0=${{ matrix.seed0 }}" > mismatch_artifact/meta.txt
+          printf '%s\n' "n=$n" >> mismatch_artifact/meta.txt
+          printf '%s\n' "v=$v" >> mismatch_artifact/meta.txt
+          printf '%s\n' "repeats=$repeats" >> mismatch_artifact/meta.txt
+
+          chmod +x bin/hirsch
+          bin/hirsch sandbox bench \
+            --kind drum \
+            --seed "${{ matrix.seed0 }}" \
+            --num-workers 1 \
+            --timing \
+            --machine-readable \
+            --backend "^%lrslib+hlbl:gmpint" \
+            --backend cddlib:gmpfloat \
+            --backend cddlib:f64 \
+            --backend cddlib+hlbl:gmpfloat \
+            --backend cddlib+hlbl:f64 \
+            --backend howzat-dd:f64 \
+            --backend howzat-dd:f64-repair[gmprat] \
+            --backend howzat-dd[purify[snap]]:f64 \
+            --backend howzat-dd[purify[snap]]:f64-repair[gmprat] \
+            --backend howzat-dd:gmprat \
+            --backend howzat-lrs:rug \
+            --backend howzat-lrs:dashu \
+            -o n="$n" \
+            -o v="$v" \
+            --repeats "$repeats" \
+            2>&1 | tee mismatch_artifact/result.log
+
+      - name: Upload artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mismatch-sweep-seed${{ matrix.seed0 }}-n${{ matrix.sweep.n }}
+          path: kompute-hirsch/mismatch_artifact
+          if-no-files-found: warn
+
+  bench-mismatch-collate:
+    name: bench / mismatch collate
+    runs-on: *bench_runs_on
+    needs: bench-mismatch-sweep
+    if: ${{ always() && needs['bench-mismatch-sweep'].result != 'skipped' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download artifacts
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          pattern: mismatch-sweep-*
+          path: artifacts_fr
+
+      - name: Install python dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install --upgrade plotly kaleido pandas
+          python3 - <<'PY'
+          from plotly.io._kaleido import kaleido_available, kaleido_major
+
+          if kaleido_available() and kaleido_major() >= 1:
+              import plotly.io as pio
+
+              print(pio.get_chrome())
+          else:
+              print("Skipping Chrome download: Kaleido v1+ not installed.")
+          PY
+
+      - name: Collate
+        run: |
+          python3 scripts/bench_reports/collate_fr_errors.py --input-dir artifacts_fr --out-dir bench-mismatch-report
+
+      - name: Upload report artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-mismatch-report
+          path: bench-mismatch-report
+          if-no-files-found: warn

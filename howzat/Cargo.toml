@@ -13,9 +13,9 @@ dashu = ["calculo/dashu"]
 simd = ["calculo/simd", "hullabaloo/simd"]
 
 [dependencies]
-calculo = { path = "../../ferramentum/calculo", version = "0.3.0", default-features = false }
 hullabaloo = { path = "../hullabaloo", version = "0.3.0", default-features = false }
 
+calculo = { version = "0.3.0", default-features = false }
 ahash = "0.8"
 smallvec = "1"
 

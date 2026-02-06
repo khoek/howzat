@@ -16,7 +16,7 @@ simd = ["calculo/simd"]
 serde = ["dep:serde"]
 
 [dependencies]
-calculo = { path = "../../ferramentum/calculo", version = "0.3.0", default-features = false }
+calculo = { version = "0.3.0", default-features = false }
 
 ahash = "0.8"
 derive_more = { version = "2", features = ["add", "mul", "not", "display"] }
