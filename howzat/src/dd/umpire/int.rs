@@ -64,6 +64,7 @@ impl<N: Rat, R: Representation> UmpireMatrix<N, R> for IntMatrix<N, R> {
 #[derive(Clone, Debug)]
 pub struct IntRay<N: Rat, ZS: ZeroSet = crate::dd::SatSet> {
     pub(crate) vector: Vec<N::Int>,
+    pub(crate) row_signs: Vec<Option<Sign>>,
     pub(crate) zero_set: ZS,
     pub(crate) zero_set_sig: u64,
     pub(crate) zero_set_count: usize,
@@ -84,6 +85,18 @@ impl<N: Rat, ZS: ZeroSet> IntRay<N, ZS> {
     #[inline(always)]
     fn cached_sign(&self, row: Row) -> Option<Sign> {
         (self.last_eval_row == Some(row)).then_some(self.last_sign)
+    }
+
+    #[inline(always)]
+    fn cached_row_sign(&self, row: Row) -> Option<Sign> {
+        self.row_signs.get(row).copied().flatten()
+    }
+
+    #[inline(always)]
+    fn set_cached_row_sign(&mut self, row: Row, sign: Sign) {
+        if let Some(slot) = self.row_signs.get_mut(row) {
+            *slot = Some(sign);
+        }
     }
 }
 
@@ -158,6 +171,7 @@ pub struct IntUmpire<
     dot_acc2: N::Int,
     dot_tmp: N::Int,
     vector_pool: Vec<Vec<N::Int>>,
+    row_sign_pool: Vec<Vec<Option<Sign>>>,
     phantom: std::marker::PhantomData<N>,
 }
 
@@ -176,6 +190,7 @@ impl<N: Rat, E: Epsilon<N>, H: HalfspacePolicy<N>> IntUmpire<N, E, H> {
             dot_acc2: N::Int::zero(),
             dot_tmp: N::Int::zero(),
             vector_pool: Vec::new(),
+            row_sign_pool: Vec::new(),
             phantom: std::marker::PhantomData,
         }
     }
@@ -189,6 +204,17 @@ impl<N: Rat, E: Epsilon<N>, H: HalfspacePolicy<N>> IntUmpire<N, E, H> {
         v
     }
 
+    #[inline]
+    fn take_row_signs(&mut self, row_count: usize) -> Vec<Option<Sign>> {
+        let mut out = self.row_sign_pool.pop().unwrap_or_default();
+        if out.len() != row_count {
+            out.resize(row_count, None);
+        } else {
+            out.fill(None);
+        }
+        out
+    }
+
     #[inline(always)]
     fn int_sign(value: &N::Int) -> Sign {
         if value.is_zero() {
@@ -197,6 +223,16 @@ impl<N: Rat, E: Epsilon<N>, H: HalfspacePolicy<N>> IntUmpire<N, E, H> {
             Sign::Negative
         } else {
             Sign::Positive
+        }
+    }
+
+    #[inline(always)]
+    fn combine_nonnegative_signs(a: Sign, b: Sign) -> Option<Sign> {
+        match (a, b) {
+            (Sign::Negative, Sign::Positive) | (Sign::Positive, Sign::Negative) => None,
+            (Sign::Zero, sign) | (sign, Sign::Zero) => Some(sign),
+            (Sign::Negative, Sign::Negative) => Some(Sign::Negative),
+            (Sign::Positive, Sign::Positive) => Some(Sign::Positive),
         }
     }
 
@@ -342,6 +378,7 @@ impl<N: Rat, E: Epsilon<N>, H: HalfspacePolicy<N>> IntUmpire<N, E, H> {
         last_row: Option<Row>,
         mut zero_set: <ZR as ZeroRepr>::Set,
         seeded_zero_set: bool,
+        mut preseeded_row_signs: Option<Vec<Option<Sign>>>,
     ) -> H::WrappedRayData<IntRay<N, <ZR as ZeroRepr>::Set>> {
         let m = cone.matrix().row_count();
         let mut negative_rows = self.halfspace.take_negative_rows(m);
@@ -350,6 +387,12 @@ impl<N: Rat, E: Epsilon<N>, H: HalfspacePolicy<N>> IntUmpire<N, E, H> {
         zero_set.ensure_domain(m);
         if !seeded_zero_set {
             zero_set.clear();
+        }
+        let mut row_signs = preseeded_row_signs
+            .take()
+            .unwrap_or_else(|| self.take_row_signs(m));
+        if row_signs.len() != m {
+            row_signs.resize(m, None);
         }
         let mut zero_set_count = zero_set.cardinality();
         let mut feasible = true;
@@ -361,7 +404,14 @@ impl<N: Rat, E: Epsilon<N>, H: HalfspacePolicy<N>> IntUmpire<N, E, H> {
         let mut last_sign = Sign::Zero;
 
         for &row_idx in &cone.order_vector {
-            let sign = if seeded_zero_set
+            let sign = if let Some(preseeded) = row_signs[row_idx] {
+                if preseeded == Sign::Zero {
+                    N::Int::assign_from(&mut self.dot_acc, &N::Int::zero());
+                } else if Some(row_idx) == last_row {
+                    self.dot_int_in_acc(cone, row_idx, &vector);
+                }
+                preseeded
+            } else if seeded_zero_set
                 && <ZR as ZeroRepr>::zero_set_contains_row(cone, &zero_set, row_idx)
             {
                 N::Int::assign_from(&mut self.dot_acc, &N::Int::zero());
@@ -370,6 +420,7 @@ impl<N: Rat, E: Epsilon<N>, H: HalfspacePolicy<N>> IntUmpire<N, E, H> {
                 self.dot_int_in_acc(cone, row_idx, &vector);
                 Self::int_sign(&self.dot_acc)
             };
+            row_signs[row_idx] = Some(sign);
             if track_negatives && sign == Sign::Negative {
                 negative_rows.insert(row_idx);
             }
@@ -406,6 +457,7 @@ impl<N: Rat, E: Epsilon<N>, H: HalfspacePolicy<N>> IntUmpire<N, E, H> {
         let zero_set_sig = zero_set.signature_u64();
         let ray_data = IntRay {
             vector,
+            row_signs,
             zero_set,
             zero_set_sig,
             zero_set_count,
@@ -970,6 +1022,7 @@ impl<N: Rat, E: Epsilon<N>, H: HalfspacePolicy<N>, ZR: crate::dd::mode::Preorder
         }
         self.vector_pool.push(old_vector);
         ray_data.vector = new_vector;
+        ray_data.row_signs.clear();
         ray_data.last_eval_row = None;
         ray_data.last_eval = N::Int::zero();
         ray_data.last_sign = Sign::Zero;
@@ -1023,6 +1076,9 @@ impl<N: Rat, E: Epsilon<N>, H: HalfspacePolicy<N>, ZR: crate::dd::mode::Preorder
         if let Some(sign) = ray.cached_sign(row) {
             return sign;
         }
+        if let Some(sign) = ray.cached_row_sign(row) {
+            return sign;
+        }
         self.dot_int_in_acc(cone, row, ray.vector());
         Self::int_sign(&self.dot_acc)
     }
@@ -1048,6 +1104,9 @@ impl<N: Rat, E: Epsilon<N>, H: HalfspacePolicy<N>, ZR: crate::dd::mode::Preorder
     fn recycle_ray_data(&mut self, ray_data: &mut Self::RayData) {
         self.halfspace.recycle_wrapped_ray_data(ray_data);
         self.vector_pool.push(std::mem::take(&mut ray_data.vector));
+        let mut row_signs = std::mem::take(&mut ray_data.row_signs);
+        row_signs.clear();
+        self.row_sign_pool.push(row_signs);
         ray_data.zero_set_sig = 0;
         ray_data.zero_set_count = 0;
     }
@@ -1062,12 +1121,22 @@ impl<N: Rat, E: Epsilon<N>, H: HalfspacePolicy<N>, ZR: crate::dd::mode::Preorder
             return sign;
         }
 
-        let value = self.dot_int_clone(cone, row, &ray_data.vector);
-        let sign = Self::int_sign(&value);
+        let sign = if let Some(sign) = ray_data.cached_row_sign(row) {
+            if sign == Sign::Zero {
+                N::Int::assign_from(&mut self.dot_acc, &N::Int::zero());
+            } else {
+                self.dot_int_in_acc(cone, row, &ray_data.vector);
+            }
+            sign
+        } else {
+            self.dot_int_in_acc(cone, row, &ray_data.vector);
+            Self::int_sign(&self.dot_acc)
+        };
 
         ray_data.last_eval_row = Some(row);
-        N::Int::assign_from(&mut ray_data.last_eval, &value);
+        N::Int::assign_from(&mut ray_data.last_eval, &self.dot_acc);
         ray_data.last_sign = sign;
+        ray_data.set_cached_row_sign(row, sign);
 
         sign
     }
@@ -1081,7 +1150,15 @@ impl<N: Rat, E: Epsilon<N>, H: HalfspacePolicy<N>, ZR: crate::dd::mode::Preorder
         zero_set: <ZR as ZeroRepr>::Set,
     ) -> Self::RayData {
         Self::normalize_vector_in_place(&mut vector);
-        self.build_ray_from_vector::<ZR, R>(cone, vector, relaxed, last_row, zero_set, false)
+        self.build_ray_from_vector::<ZR, R>(
+            cone,
+            vector,
+            relaxed,
+            last_row,
+            zero_set,
+            false,
+            None,
+        )
     }
 
     fn sign_sets_for_ray<R: Representation>(
@@ -1151,6 +1228,11 @@ impl<N: Rat, E: Epsilon<N>, H: HalfspacePolicy<N>, ZR: crate::dd::mode::Preorder
         let mut last_sign = ray_data.last_sign;
 
         let m = cone.matrix().row_count();
+        if ray_data.row_signs.len() != m {
+            ray_data.row_signs.resize(m, None);
+        } else {
+            ray_data.row_signs.fill(None);
+        }
         ray_data.zero_set.ensure_domain(m);
         ray_data.zero_set.clear();
         let mut zero_set_count = 0usize;
@@ -1161,6 +1243,7 @@ impl<N: Rat, E: Epsilon<N>, H: HalfspacePolicy<N>, ZR: crate::dd::mode::Preorder
         for &row_idx in &cone.order_vector {
             self.dot_int_in_acc(cone, row_idx, &ray_data.vector);
             let sign = Self::int_sign(&self.dot_acc);
+            ray_data.set_cached_row_sign(row_idx, sign);
 
             if Some(row_idx) == last_eval_row {
                 last_eval = self.dot_acc.clone();
@@ -1213,6 +1296,24 @@ impl<N: Rat, E: Epsilon<N>, H: HalfspacePolicy<N>, ZR: crate::dd::mode::Preorder
         if let Some(id) = <ZR as ZeroRepr>::id_for_row(cone, row) {
             inherited_zero_set.insert(id);
         }
+        let mut inherited_row_signs = self.take_row_signs(cone.matrix().row_count());
+        for &row_idx in &cone.order_vector {
+            let parent_a_sign = ray1.cached_row_sign(row_idx).or_else(|| {
+                <ZR as ZeroRepr>::zero_set_contains_row(cone, ray1.zero_set(), row_idx)
+                    .then_some(Sign::Zero)
+            });
+            let parent_b_sign = ray2.cached_row_sign(row_idx).or_else(|| {
+                <ZR as ZeroRepr>::zero_set_contains_row(cone, ray2.zero_set(), row_idx)
+                    .then_some(Sign::Zero)
+            });
+            let (Some(parent_a_sign), Some(parent_b_sign)) = (parent_a_sign, parent_b_sign) else {
+                continue;
+            };
+            if let Some(sign) = Self::combine_nonnegative_signs(parent_a_sign, parent_b_sign) {
+                inherited_row_signs[row_idx] = Some(sign);
+            }
+        }
+        inherited_row_signs[row] = Some(Sign::Zero);
 
         let (val1, val2) = match (
             ray1.last_eval_row == Some(row),
@@ -1278,6 +1379,7 @@ impl<N: Rat, E: Epsilon<N>, H: HalfspacePolicy<N>, ZR: crate::dd::mode::Preorder
             Some(row),
             inherited_zero_set,
             true,
+            Some(inherited_row_signs),
         ))
     }
 }
