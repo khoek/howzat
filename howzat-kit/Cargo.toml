@@ -19,7 +19,7 @@ use-system-gmp = [
 ]
 
 [dependencies]
-howzat = { path = "../howzat", version = "0.3.1" }
+howzat = { path = "../howzat", version = "0.3.2" }
 hullabaloo = { package = "hullabaloo-core", path = "../hullabaloo-core", version = "0.3.1", features = ["serde"] }
 cddlib-rs = { path = "../cddlib-rs", version = "0.3.1", features = ["gmprational"] }
 lrslib-rs = { path = "../lrslib-rs", version = "0.3.1", features = ["gmp"] }
