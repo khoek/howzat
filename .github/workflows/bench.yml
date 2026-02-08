@@ -58,7 +58,7 @@ jobs:
             m4 \
             pkg-config
 
-      - name: Patch kompute-hirsch to local polytopia crates
+      - name: Patch kompute-hirsch to local howzat crates
         shell: bash
         run: |
           set -euo pipefail

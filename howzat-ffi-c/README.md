@@ -5,14 +5,14 @@ User-friendly C bindings for the Rust crate `howzat` via `howzat-kit`.
 ## Build
 
 ```bash
-cd polytopia
+cd howzat
 cargo build -p howzat-ffi-c --release
 ```
 
 Artifacts:
-- `polytopia/target/release/libhowzat_ffi_c.so`
-- `polytopia/target/release/libhowzat_ffi_c.a`
-- `polytopia/howzat-ffi-c/include/howzat_ffi.h`
+- `howzat/target/release/libhowzat_ffi_c.so`
+- `howzat/target/release/libhowzat_ffi_c.a`
+- `howzat/howzat-ffi-c/include/howzat_ffi.h`
 
 ## Usage
 
@@ -89,6 +89,6 @@ corresponding owner (`howzat_result_t` / `howzat_backend_t`) is freed.
 Regenerate the header with:
 
 ```bash
-cd polytopia/howzat-ffi-c
+cd howzat/howzat-ffi-c
 cbindgen --config cbindgen.toml --output include/howzat_ffi.h
 ```
