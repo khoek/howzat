@@ -655,18 +655,7 @@ impl<N: Rat, E: Epsilon<N>, H: HalfspacePolicy<N>> IntUmpire<N, E, H> {
 
         let mut work: Vec<N::Int> = vec![N::Int::zero(); cols];
 
-        let mut candidates: Vec<Row> = Vec::new();
-        for row in 0..cone.matrix().row_count() {
-            if equality_set.contains(row) && !strict_rows.contains(row) {
-                candidates.push(row);
-            }
-        }
-        for &row in &cone.order_vector {
-            if equality_set.contains(row) || strict_rows.contains(row) {
-                continue;
-            }
-            candidates.push(row);
-        }
+        let candidates = Self::basis_candidates(cone, strict_rows, equality_set);
 
         let z0 = N::Int::zero();
         let z1 = N::Int::one();
@@ -764,18 +753,163 @@ impl<N: Rat, E: Epsilon<N>, H: HalfspacePolicy<N>> IntUmpire<N, E, H> {
         (chosen_rows, pivots)
     }
 
+    #[inline(always)]
+    fn basis_candidates<R: Representation>(
+        cone: &ConeCtx<N, R, IntMatrix<N, R>>,
+        strict_rows: &RowSet,
+        equality_set: &RowSet,
+    ) -> Vec<Row> {
+        let mut candidates: Vec<Row> = Vec::new();
+        for row in 0..cone.matrix().row_count() {
+            if equality_set.contains(row) && !strict_rows.contains(row) {
+                candidates.push(row);
+            }
+        }
+        for &row in &cone.order_vector {
+            if equality_set.contains(row) || strict_rows.contains(row) {
+                continue;
+            }
+            candidates.push(row);
+        }
+        candidates
+    }
+
+    #[inline(always)]
+    fn normalize_integer_row(row: &mut [N::Int], pivot_col: usize) {
+        let mut row_gcd: Option<N::Int> = None;
+        for value in row.iter() {
+            if value.is_zero() {
+                continue;
+            }
+            let abs = value.abs().expect("exact basis selection requires abs");
+            match row_gcd.as_mut() {
+                None => row_gcd = Some(abs),
+                Some(g) => g
+                    .gcd_assign(&abs)
+                    .expect("exact basis selection requires gcd"),
+            }
+        }
+        if let Some(g) = row_gcd.filter(|g| !g.is_zero() && *g != N::Int::one()) {
+            for value in row.iter_mut() {
+                if value.is_zero() {
+                    continue;
+                }
+                value
+                    .div_assign_exact(&g)
+                    .expect("exact basis selection requires exact division");
+            }
+        }
+
+        if row.get(pivot_col).is_some_and(|v| v.is_negative()) {
+            for value in row.iter_mut() {
+                if value.is_zero() {
+                    continue;
+                }
+                value
+                    .neg_mut()
+                    .expect("exact basis selection requires negation");
+            }
+        }
+    }
+
+    fn rebuild_basis_rows_and_cols_fallback<R: Representation>(
+        &mut self,
+        cone: &ConeCtx<N, R, IntMatrix<N, R>>,
+        strict_rows: &RowSet,
+        equality_set: &RowSet,
+    ) -> (Vec<Row>, Vec<usize>) {
+        let cols = cone.matrix().col_count();
+        if cols == 0 {
+            return (Vec::new(), Vec::new());
+        }
+
+        let mut row_ids = Self::basis_candidates(cone, strict_rows, equality_set);
+        if row_ids.is_empty() {
+            return (Vec::new(), Vec::new());
+        }
+
+        let mut work_rows: Vec<Vec<N::Int>> = Vec::with_capacity(row_ids.len());
+        for &row in &row_ids {
+            work_rows.push(cone.matrix.int_row(row).to_vec());
+        }
+
+        let mut chosen_rows: Vec<Row> = Vec::with_capacity(cols.min(row_ids.len()));
+        let mut pivot_cols: Vec<usize> = Vec::with_capacity(cols.min(row_ids.len()));
+        let mut rank = 0usize;
+
+        for col in 0..cols {
+            let Some(pivot_at) = (rank..work_rows.len()).find(|&r| !work_rows[r][col].is_zero())
+            else {
+                continue;
+            };
+            if pivot_at != rank {
+                work_rows.swap(rank, pivot_at);
+                row_ids.swap(rank, pivot_at);
+            }
+
+            Self::normalize_integer_row(&mut work_rows[rank], col);
+            let basis_row = work_rows[rank].clone();
+            let basis_pivot = basis_row[col].clone();
+            if basis_pivot.is_zero() {
+                continue;
+            }
+
+            for row in rank + 1..work_rows.len() {
+                let pivot = work_rows[row][col].clone();
+                if pivot.is_zero() {
+                    continue;
+                }
+                let mut g = basis_pivot.clone();
+                g.gcd_assign(&pivot)
+                    .expect("exact basis selection requires gcd");
+                if g.is_zero() {
+                    continue;
+                }
+
+                let mut a = basis_pivot.clone();
+                a.div_assign_exact(&g)
+                    .expect("exact basis selection requires exact division");
+                let mut b = pivot;
+                b.div_assign_exact(&g)
+                    .expect("exact basis selection requires exact division");
+
+                for c in col..cols {
+                    let mut left = work_rows[row][c].clone();
+                    left.mul_assign(&a)
+                        .expect("exact basis selection requires multiplication");
+                    let mut right = basis_row[c].clone();
+                    right
+                        .mul_assign(&b)
+                        .expect("exact basis selection requires multiplication");
+                    left -= &right;
+                    N::Int::assign_from(&mut work_rows[row][c], &left);
+                }
+                Self::normalize_integer_row(&mut work_rows[row], col);
+            }
+
+            chosen_rows.push(row_ids[rank]);
+            pivot_cols.push(col);
+            rank += 1;
+            if rank == cols {
+                break;
+            }
+        }
+
+        (chosen_rows, pivot_cols)
+    }
+
     fn compute_basis_matrix_from_pivots<R: Representation>(
         &mut self,
         cone: &ConeCtx<N, R, IntMatrix<N, R>>,
         pivot_rows: &[Row],
         pivot_cols: &[usize],
-    ) -> BasisMatrix<N> {
+    ) -> Option<BasisMatrix<N>> {
         let d = cone.matrix().col_count();
         if d == 0 {
-            return BasisMatrix::identity(0);
+            return Some(BasisMatrix::identity(0));
         }
         if pivot_rows.is_empty() {
-            return BasisMatrix::identity(d);
+            return Some(BasisMatrix::identity(d));
         }
 
         let k = pivot_rows.len();
@@ -795,10 +929,7 @@ impl<N: Rat, E: Epsilon<N>, H: HalfspacePolicy<N>> IntUmpire<N, E, H> {
         }
         let mut pivot_scratch = <N::Int as Int>::PivotScratch::default();
         let mut det =
-            bareiss_solve_det_times_matrix_in_place(&mut a, &mut adj, k, &mut pivot_scratch)
-                .unwrap_or_else(|| {
-                    panic!("exact basis computation failed (singular pivot submatrix)")
-                });
+            bareiss_solve_det_times_matrix_in_place(&mut a, &mut adj, k, &mut pivot_scratch)?;
 
         if det.is_negative() {
             det.neg_mut()
@@ -863,7 +994,7 @@ impl<N: Rat, E: Epsilon<N>, H: HalfspacePolicy<N>> IntUmpire<N, E, H> {
             }
         }
 
-        BasisMatrix::from_flat(d, data)
+        Some(BasisMatrix::from_flat(d, data))
     }
 }
 
@@ -1040,8 +1171,25 @@ impl<N: Rat, E: Epsilon<N>, H: HalfspacePolicy<N>, ZR: crate::dd::mode::Preorder
         let mut initial_ray_index = vec![None; d];
         let mut initial_halfspaces = RowSet::new(m);
 
-        let (pivot_rows, pivot_cols) =
+        let (mut pivot_rows, mut pivot_cols) =
             self.choose_basis_rows_and_cols(cone, strict_rows, equality_set);
+        let basis = match self.compute_basis_matrix_from_pivots(cone, &pivot_rows, &pivot_cols) {
+            Some(basis) => basis,
+            None => {
+                let (repair_rows, repair_cols) =
+                    self.rebuild_basis_rows_and_cols_fallback(cone, strict_rows, equality_set);
+                pivot_rows = repair_rows;
+                pivot_cols = repair_cols;
+                match self.compute_basis_matrix_from_pivots(cone, &pivot_rows, &pivot_cols) {
+                    Some(basis) => basis,
+                    None => {
+                        pivot_rows.clear();
+                        pivot_cols.clear();
+                        BasisMatrix::identity(d)
+                    }
+                }
+            }
+        };
         for (&row, &col) in pivot_rows.iter().zip(pivot_cols.iter()) {
             if col >= d {
                 continue;
@@ -1049,7 +1197,7 @@ impl<N: Rat, E: Epsilon<N>, H: HalfspacePolicy<N>, ZR: crate::dd::mode::Preorder
             initial_ray_index[col] = Some(row);
             initial_halfspaces.insert(row);
         }
-        tableau.set_basis(self.compute_basis_matrix_from_pivots(cone, &pivot_rows, &pivot_cols));
+        tableau.set_basis(basis);
         tableau.set_tableau_nonbasic_default(d);
         tableau.set_tableau_basic_col_for_row_len(m);
         tableau.clear_tableau_storage();
