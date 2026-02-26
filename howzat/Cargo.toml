@@ -1,6 +1,6 @@
 [package]
 name = "howzat"
-version = "0.3.2"
+version = "0.3.3"
 edition = "2024"
 license = "AGPL-3.0-only"
 description = "Dynamic double-description and LRS-backed polyhedral conversion with state-of-the-art performance."
@@ -14,14 +14,14 @@ dashu = ["calculo/dashu"]
 simd = ["calculo/simd", "hullabaloo/simd"]
 
 [dependencies]
-hullabaloo = { package = "hullabaloo-core", path = "../hullabaloo-core", version = "0.3.1", default-features = false }
+hullabaloo = { package = "hullabaloo-core", path = "../hullabaloo-core", version = "0.3.2", default-features = false }
 
 calculo = { version = "0.3.1", default-features = false }
 ahash = "0.8"
 smallvec = "1"
 
 [dev-dependencies]
-cddlib-rs = { path = "../cddlib-rs", version = "0.3.1" }
+cddlib-rs = { path = "../cddlib-rs", version = "0.3.2" }
 
 rstest = "0.26"
 

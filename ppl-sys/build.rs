@@ -32,8 +32,8 @@ impl CoeffMode {
     }
 }
 
-#[derive(Clone)]
 struct PplLayout {
+    _cache_lock: syn::LockedCacheDir,
     archive_path: PathBuf,
     source_dir: PathBuf,
     build_dir: PathBuf,
@@ -62,11 +62,14 @@ fn main() {
     let perf_flags = perf_flags_string(needs_pic);
     let out_dir = syn::out_dir();
 
-    let gmpxx_build =
-        (coeff_mode == CoeffMode::Gmp && !use_system_gmp).then(|| ensure_gmpxx_static(&out_dir, &perf_flags));
+    let gmpxx_build = (coeff_mode == CoeffMode::Gmp && !use_system_gmp)
+        .then(|| ensure_gmpxx_static(&out_dir, &perf_flags));
 
-    let ppl_layout = ppl_layout(coeff_mode, needs_pic);
-    println!("cargo:rerun-if-changed={}", ppl_layout.archive_path.display());
+    let ppl_layout = ppl_layout(coeff_mode, needs_pic, use_system_gmp);
+    println!(
+        "cargo:rerun-if-changed={}",
+        ppl_layout.archive_path.display()
+    );
     ensure_ppl_source(&ppl_layout);
     autoreconf_ppl(&ppl_layout.source_dir);
 
@@ -126,22 +129,24 @@ fn coeff_mode() -> CoeffMode {
     }
 }
 
-fn ppl_layout(coeff_mode: CoeffMode, needs_pic: bool) -> PplLayout {
+fn ppl_layout(coeff_mode: CoeffMode, needs_pic: bool, use_system_gmp: bool) -> PplLayout {
     let archive_path = syn::vendor_dir().join(format!("ppl-{PPL_TAG}.tar.gz"));
     if !archive_path.is_file() {
         panic!("missing vendored ppl archive at {}", archive_path.display());
     }
 
-    let cache_root = syn::cache_root();
-    let dir_key = format!(
-        "{}-{}{}",
-        syn::sanitize_component(PPL_TAG),
-        coeff_mode.cache_component(),
-        if needs_pic { "-pic" } else { "" },
-    );
-    let root = cache_root.join(dir_key);
+    let fingerprint = syn::CacheFingerprint::builder()
+        .kv("coeff", coeff_mode.cache_component())
+        .flag("pic", needs_pic)
+        .flag("sysgmp", use_system_gmp)
+        .build();
+    let cache = syn::cache_dir(PPL_TAG)
+        .with_fingerprint_opt(fingerprint)
+        .lock();
+    let root = cache.path().to_path_buf();
 
     PplLayout {
+        _cache_lock: cache,
         archive_path,
         source_dir: root.join(format!("PPL-{PPL_TAG}")),
         build_dir: root.join("build"),
@@ -223,7 +228,10 @@ fn build_ppl(
         .arg("--enable-ppl_lpsol=no")
         .arg("--enable-ppl_pips=no")
         .args(needs_pic.then_some("--with-pic"))
-        .arg(format!("--enable-coefficients={}", coeff_mode.configure_arg()))
+        .arg(format!(
+            "--enable-coefficients={}",
+            coeff_mode.configure_arg()
+        ))
         .current_dir(&layout.build_dir)
         .env("CFLAGS", perf_flags)
         .env("CXXFLAGS", perf_flags)
@@ -254,18 +262,11 @@ fn build_ppl(
     }
     syn::run(&mut configure, "ppl configure failed");
 
-    let jobs = syn::parallel_jobs();
-    let mut make = Command::new("make");
-    syn::apply_parallel(&mut make, jobs);
-    make.current_dir(&layout.build_dir);
-    syn::run(&mut make, "ppl make failed");
+    let make = syn::MakeRunner::from_env();
+    make.run(&layout.build_dir, "ppl make failed");
 
-    let mut make_install = Command::new("make");
-    make_install
-        .arg("install")
-        .current_dir(&layout.build_dir)
-        .env("CMAKE_BUILD_PARALLEL_LEVEL", jobs.to_string());
-    syn::apply_parallel(&mut make_install, jobs);
+    let mut make_install = make.command_for_target(&layout.build_dir, "install");
+    make_install.env("CMAKE_BUILD_PARALLEL_LEVEL", make.jobs().to_string());
     syn::run(&mut make_install, "ppl make install failed");
 
     if !ppl_install_is_present(&layout.install_dir) {
@@ -452,7 +453,9 @@ fn read_dir_paths(path: &Path) -> Vec<PathBuf> {
     let Ok(entries) = fs::read_dir(path) else {
         return Vec::new();
     };
-    entries.filter_map(|entry| entry.ok().map(|e| e.path())).collect()
+    entries
+        .filter_map(|entry| entry.ok().map(|e| e.path()))
+        .collect()
 }
 
 fn find_registry_gmp_source() -> Option<PathBuf> {
@@ -482,7 +485,10 @@ fn find_registry_gmp_source() -> Option<PathBuf> {
             let Some(name) = source_dir.file_name().and_then(|s| s.to_str()) else {
                 continue;
             };
-            if name.starts_with("gmp-") && name.ends_with("-c") && gmp_source_dir_is_valid(&source_dir) {
+            if name.starts_with("gmp-")
+                && name.ends_with("-c")
+                && gmp_source_dir_is_valid(&source_dir)
+            {
                 return Some(source_dir);
             }
         }
@@ -525,10 +531,8 @@ fn configure_and_build_gmpxx(source_dir: &Path, build_dir: &Path, perf_flags: &s
         syn::run(&mut configure, "ppl-sys: GMP configure for gmpxx failed");
     }
 
-    let jobs = syn::parallel_jobs();
-    let mut make = Command::new("make");
-    syn::apply_parallel(&mut make, jobs);
-    make.current_dir(build_dir);
+    let make = syn::MakeRunner::from_env();
+    let mut make = make.command(build_dir);
     syn::run(&mut make, "ppl-sys: GMP build for gmpxx failed");
 }
 

@@ -1,6 +1,6 @@
 [package]
 name = "hullabaloo"
-version = "0.3.1"
+version = "0.3.2"
 edition = "2024"
 license = "AGPL-3.0-only"
 description = "Backend-agnostic geometry construction utilities."
@@ -17,5 +17,5 @@ simd = ["hullabaloo-core/simd", "hullabaloo-geom/simd"]
 serde = ["hullabaloo-core/serde", "hullabaloo-geom/serde"]
 
 [dependencies]
-hullabaloo-core = { path = "../hullabaloo-core", version = "0.3.1", default-features = false }
-hullabaloo-geom = { path = "../hullabaloo-geom", version = "0.3.1", default-features = false }
+hullabaloo-core = { path = "../hullabaloo-core", version = "0.3.2", default-features = false }
+hullabaloo-geom = { path = "../hullabaloo-geom", version = "0.3.2", default-features = false }

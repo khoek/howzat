@@ -1,6 +1,6 @@
 [package]
 name = "lrslib-rs"
-version = "0.3.1"
+version = "0.3.2"
 edition = "2024"
 license = "AGPL-3.0-only"
 description = "Idiomatic Rust bindings around lrslib."
@@ -17,8 +17,8 @@ gmp = ["dep:gmp-mpfr-sys", "lrslib-sys/gmp"]
 use-system-gmp = ["lrslib-sys/use-system-gmp"]
 
 [dependencies]
-lrslib-sys = { path = "../lrslib-sys", version = "0.3.0" }
-hullabaloo = { package = "hullabaloo-core", path = "../hullabaloo-core", version = "0.3.1" }
+lrslib-sys = { path = "../lrslib-sys", version = "0.3.1" }
+hullabaloo = { package = "hullabaloo-core", path = "../hullabaloo-core", version = "0.3.2" }
 
 calculo = { version = "0.3.1", default-features = false, features = ["rug"] }
 
@@ -28,4 +28,4 @@ libc = "0.2"
 rug = { version = "1", default-features = false, features = ["integer", "std"] }
 
 [dev-dependencies]
-cddlib-rs = { path = "../cddlib-rs", version = "0.3.1", features = ["gmprational"] }
+cddlib-rs = { path = "../cddlib-rs", version = "0.3.2", features = ["gmprational"] }

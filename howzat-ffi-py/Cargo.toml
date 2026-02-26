@@ -1,6 +1,6 @@
 [package]
 name = "howzat-ffi-py"
-version = "0.3.2"
+version = "0.3.3"
 edition = "2024"
 license = "AGPL-3.0-only"
 description = "PyO3 bindings for howzat backend runner APIs."
@@ -17,8 +17,8 @@ default = []
 use-system-gmp = ["howzat-kit/use-system-gmp"]
 
 [dependencies]
-howzat-kit = { path = "../howzat-kit", version = "0.3.2", features = ["pic"] }
-hullabaloo = { package = "hullabaloo-core", path = "../hullabaloo-core", version = "0.3.1" }
+howzat-kit = { path = "../howzat-kit", version = "0.3.3", features = ["pic"] }
+hullabaloo = { package = "hullabaloo-core", path = "../hullabaloo-core", version = "0.3.2" }
 
 calculo = { version = "0.3.1" }
 numpy = "0.28"

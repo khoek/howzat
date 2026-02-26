@@ -21,8 +21,8 @@ fn vendor_dir() -> PathBuf {
     syn::vendor_dir()
 }
 
-#[derive(Clone)]
 struct CddLayout {
+    _cache_lock: syn::LockedCacheDir,
     archive_path: PathBuf,
     source_dir: PathBuf,
     build_dir: PathBuf,
@@ -99,6 +99,8 @@ fn main() {
         );
     }
     let tools_backend = tools_backend(&backends);
+    let needs_pic = env::var_os("CARGO_FEATURE_PIC").is_some();
+    let use_system_gmp = env::var_os("CARGO_FEATURE_USE_SYSTEM_GMP").is_some();
 
     let header = "\
 typedef __UINT8_TYPE__ uint8_t;\n\
@@ -115,7 +117,7 @@ typedef __UINT64_TYPE__ uint64_t;\n\
     }
 
     for backend in backends {
-        let layout = cdd_layout(backend);
+        let layout = cdd_layout(backend, needs_pic, use_system_gmp);
         println!("cargo:rerun-if-changed={}", layout.archive_path.display());
 
         let install_dir = ensure_cddlib(&layout, backend);
@@ -459,7 +461,7 @@ fn ensure_cdd_source(layout: &CddLayout) -> PathBuf {
         .source_dir
         .parent()
         .unwrap_or_else(|| panic!("missing parent for {}", layout.source_dir.display()));
-    extract_archive(&layout.archive_path, root);
+    syn::extract_tar_gz(&layout.archive_path, root);
     if layout.source_dir.join("configure").exists() {
         return layout.source_dir.clone();
     }
@@ -532,26 +534,19 @@ fn build_cddlib(layout: &CddLayout, backend: Backend) -> PathBuf {
             configure.env("CPPFLAGS", cppflags).env("LDFLAGS", ldflags);
         }
     }
-    run(&mut configure, "cddlib configure failed");
+    syn::run(&mut configure, "cddlib configure failed");
 
     if backend == Backend::GmpFloat {
         patch_gmpfloat_sources(&layout.build_dir);
         rewrite_gmp_makefiles(&layout.build_dir);
     }
 
-    let jobs = parallel_jobs();
-    let mut make = Command::new("make");
-    apply_parallel(&mut make, jobs);
-    make.current_dir(&layout.build_dir);
-    run(&mut make, "cddlib make failed");
+    let make = syn::MakeRunner::from_env();
+    make.run(&layout.build_dir, "cddlib make failed");
 
-    let mut make_install = Command::new("make");
-    make_install
-        .arg("install")
-        .current_dir(&layout.build_dir)
-        .env("CMAKE_BUILD_PARALLEL_LEVEL", jobs.to_string());
-    apply_parallel(&mut make_install, jobs);
-    run(&mut make_install, "cddlib make install failed");
+    let mut make_install = make.command_for_target(&layout.build_dir, "install");
+    make_install.env("CMAKE_BUILD_PARALLEL_LEVEL", make.jobs().to_string());
+    syn::run(&mut make_install, "cddlib make install failed");
 
     if !has_backend_lib(&layout.install_dir, backend) {
         panic!(
@@ -564,7 +559,7 @@ fn build_cddlib(layout: &CddLayout, backend: Backend) -> PathBuf {
     layout.install_dir.clone()
 }
 
-fn cdd_layout(backend: Backend) -> CddLayout {
+fn cdd_layout(backend: Backend, needs_pic: bool, use_system_gmp: bool) -> CddLayout {
     let archive_path = vendor_dir().join(format!("cddlib-{CDDLIB_TAG}.tar.gz"));
     if !archive_path.is_file() {
         panic!(
@@ -572,25 +567,22 @@ fn cdd_layout(backend: Backend) -> CddLayout {
             archive_path.display()
         );
     }
-    let cache_root = cache_root();
-    let needs_pic = env::var_os("CARGO_FEATURE_PIC").is_some();
-    let dir_key = format!(
-        "{}-{}{}",
-        syn::sanitize_component(CDDLIB_TAG),
-        backend.cache_component(),
-        if needs_pic { "-pic" } else { "" },
-    );
-    let root = cache_root.join(dir_key);
+    let fingerprint = syn::CacheFingerprint::builder()
+        .kv("backend", backend.cache_component())
+        .flag("pic", needs_pic)
+        .flag("sysgmp", use_system_gmp)
+        .build();
+    let cache = syn::cache_dir(CDDLIB_TAG)
+        .with_fingerprint_opt(fingerprint)
+        .lock();
+    let root = cache.path().to_path_buf();
     CddLayout {
+        _cache_lock: cache,
         archive_path,
         source_dir: root.join(format!("cddlib-{CDDLIB_TAG}")),
         build_dir: root.join("build"),
         install_dir: root.join("install"),
     }
-}
-
-fn cache_root() -> PathBuf {
-    syn::cache_root()
 }
 
 fn available_lib_dirs(root: &Path) -> Vec<(LibFlavor, PathBuf)> {
@@ -653,31 +645,11 @@ fn perf_flags() -> impl Iterator<Item = &'static str> {
 }
 
 fn native_cpu_flags() -> &'static [&'static str] {
-    if wants_native_cpu_flags() {
+    if syn::wants_native_cpu_flags() {
         NATIVE_CPU_FLAGS
     } else {
         &[]
     }
-}
-
-fn wants_native_cpu_flags() -> bool {
-    syn::wants_native_cpu_flags()
-}
-
-fn parallel_jobs() -> usize {
-    syn::parallel_jobs()
-}
-
-fn apply_parallel(cmd: &mut Command, jobs: usize) {
-    syn::apply_parallel(cmd, jobs);
-}
-
-fn extract_archive(archive_path: &Path, out_dir: &Path) {
-    syn::extract_tar_gz(archive_path, out_dir);
-}
-
-fn run(cmd: &mut Command, err: &str) {
-    syn::run(cmd, err);
 }
 
 fn gmp_paths() -> Option<(PathBuf, PathBuf)> {

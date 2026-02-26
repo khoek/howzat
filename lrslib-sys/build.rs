@@ -8,8 +8,8 @@ const LRSLIB_TAG: &str = "073a";
 const PERF_FLAGS: &[&str] = &["-O3", "-DNDEBUG", "-g0", "-fomit-frame-pointer"];
 const NATIVE_CPU_FLAGS: &[&str] = &["-march=native", "-mtune=native"];
 
-#[derive(Clone)]
 struct LrsLayout {
+    _cache_lock: syn::LockedCacheDir,
     archive_path: PathBuf,
     source_dir: PathBuf,
 }
@@ -44,11 +44,11 @@ fn lrs_layout() -> LrsLayout {
         );
     }
 
-    let cache_root = cache_root();
-    let dir_key = syn::sanitize_component(LRSLIB_TAG);
-    let root = cache_root.join(dir_key);
+    let cache = syn::cache_dir(LRSLIB_TAG).lock();
+    let root = cache.path().to_path_buf();
 
     LrsLayout {
+        _cache_lock: cache,
         archive_path,
         source_dir: root.join(format!("lrslib-{LRSLIB_TAG}")),
     }
@@ -133,17 +133,13 @@ fn build_lrslib(layout: &LrsLayout) {
     for flag in PERF_FLAGS {
         build.flag(flag);
     }
-    if wants_native_cpu_flags() {
+    if syn::wants_native_cpu_flags() {
         for flag in NATIVE_CPU_FLAGS {
             build.flag(flag);
         }
     }
 
     build.compile("lrslib");
-}
-
-fn wants_native_cpu_flags() -> bool {
-    syn::wants_native_cpu_flags()
 }
 
 fn generate_bindings(layout: &LrsLayout) {
@@ -237,10 +233,6 @@ typedef __UINT64_TYPE__ uint64_t;\n\
     bindings
         .write_to_file(out_path.join("bindings.rs"))
         .expect("Couldn't write bindings!");
-}
-
-fn cache_root() -> PathBuf {
-    syn::cache_root()
 }
 
 fn gmp_include_dir() -> Option<PathBuf> {
