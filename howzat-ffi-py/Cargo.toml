@@ -17,10 +17,10 @@ default = []
 use-system-gmp = ["howzat-kit/use-system-gmp"]
 
 [dependencies]
-howzat-kit = { path = "../howzat-kit", version = "0.3.3", features = ["pic"] }
-hullabaloo = { package = "hullabaloo-core", path = "../hullabaloo-core", version = "0.3.2" }
+howzat-kit = { path = "../howzat-kit", version = "0.3", features = ["pic"] }
+hullabaloo = { package = "hullabaloo-core", path = "../hullabaloo-core", version = "0.3" }
+calculo = { version = "0.3" }
 
-calculo = { version = "0.3.1" }
 numpy = "0.28"
 pyo3 = { version = "0.28", features = ["extension-module"] }
 rug = { version = "1", default-features = false, features = ["integer", "rational", "std"] }

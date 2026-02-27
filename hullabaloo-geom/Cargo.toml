@@ -17,12 +17,11 @@ simd = ["calculo/simd", "hullabaloo-core/simd"]
 serde = ["hullabaloo-core/serde"]
 
 [dependencies]
-hullabaloo-core = { path = "../hullabaloo-core", version = "0.3.2", default-features = false }
-
-calculo = { version = "0.3.1", default-features = false }
+hullabaloo-core = { path = "../hullabaloo-core", version = "0.3", default-features = false }
+calculo = { version = "0.3", default-features = false }
 
 [dev-dependencies]
-cddlib-rs = { path = "../cddlib-rs", version = "0.3.2" }
+cddlib-rs = { path = "../cddlib-rs", version = "0.3" }
 
 anyhow = "1"
 rand = "0.10"

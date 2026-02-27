@@ -19,14 +19,14 @@ use-system-gmp = [
 ]
 
 [dependencies]
-howzat = { path = "../howzat", version = "0.3.3" }
-hullabaloo = { package = "hullabaloo-core", path = "../hullabaloo-core", version = "0.3.2", features = ["serde"] }
-cddlib-rs = { path = "../cddlib-rs", version = "0.3.2", features = ["gmprational"] }
-lrslib-rs = { path = "../lrslib-rs", version = "0.3.2", features = ["gmp"] }
-ppl-rs = { path = "../ppl-rs", version = "0.3.2", default-features = false, features = ["gmp"] }
+howzat = { path = "../howzat", version = "0.3" }
+hullabaloo = { package = "hullabaloo-core", path = "../hullabaloo-core", version = "0.3", features = ["serde"] }
+cddlib-rs = { path = "../cddlib-rs", version = "0.3", features = ["gmprational"] }
+lrslib-rs = { path = "../lrslib-rs", version = "0.3", features = ["gmp"] }
+ppl-rs = { path = "../ppl-rs", version = "0.3", default-features = false, features = ["gmp"] }
+calculo = { version = "0.3" }
 
-calculo = { version = "0.3.1" }
-gmp-mpfr-sys = { version = "~1.6", default-features = false, optional = true, features = ["use-system-libs"] }
+gmp-mpfr-sys = { version = "1", default-features = false, optional = true, features = ["use-system-libs"] }
 anyhow = "1"
 serde = { version = "1", features = ["derive"] }
 tracing = "0.1"

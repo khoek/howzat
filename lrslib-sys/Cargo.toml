@@ -19,10 +19,10 @@ gmp = ["dep:gmp-mpfr-sys"]
 use-system-gmp = ["dep:gmp-mpfr-sys", "gmp-mpfr-sys/use-system-libs"]
 
 [dependencies]
-gmp-mpfr-sys = { version = "~1.6", default-features = false, optional = true, features = ["c-no-tests"] }
+gmp-mpfr-sys = { version = "1", default-features = false, optional = true, features = ["c-no-tests"] }
 
 [build-dependencies]
-syntheon = { version = "0.3.0" }
+syntheon = { version = "0.3" }
 
 bindgen = "0.72"
 cc = "1"

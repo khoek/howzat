@@ -19,9 +19,9 @@ pic = ["ppl-sys/pic"]
 use-system-gmp = ["ppl-sys/use-system-gmp"]
 
 [dependencies]
-ppl-sys = { path = "../ppl-sys", version = "0.3.1", default-features = false }
-hullabaloo = { package = "hullabaloo-core", path = "../hullabaloo-core", version = "0.3.2" }
-calculo = { version = "0.3.1", default-features = false, features = ["rug"] }
+ppl-sys = { path = "../ppl-sys", version = "0.3", default-features = false }
+hullabaloo = { package = "hullabaloo-core", path = "../hullabaloo-core", version = "0.3" }
+calculo = { version = "0.3", default-features = false, features = ["rug"] }
 
 thiserror = "2"
 libc = "0.2"

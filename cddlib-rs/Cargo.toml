@@ -21,8 +21,8 @@ use-system-gmp = ["cddlib-sys/use-system-gmp"]
 default = ["f64", "gmp", "gmprational"]
 
 [dependencies]
-cddlib-sys = { path = "../cddlib-sys", version = "0.3.1", default-features = false }
-hullabaloo = { package = "hullabaloo-core", path = "../hullabaloo-core", version = "0.3.2" }
+cddlib-sys = { path = "../cddlib-sys", version = "0.3", default-features = false }
+hullabaloo = { package = "hullabaloo-core", path = "../hullabaloo-core", version = "0.3" }
 
 thiserror = "2"
 libc = "0.2"
