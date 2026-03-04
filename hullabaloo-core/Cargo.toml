@@ -7,6 +7,7 @@ description = "Core data structures and adjacency utilities for polyhedral tooli
 readme = "README.md"
 repository = "https://github.com/khoek/howzat"
 
+keywords = ["polyhedra", "geometry", "adjacency", "combinatorics", "core"]
 [lib]
 name = "hullabaloo_core"
 path = "src/lib.rs"

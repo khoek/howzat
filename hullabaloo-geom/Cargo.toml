@@ -7,6 +7,7 @@ description = "Geometry construction layer for hullabaloo."
 readme = "README.md"
 repository = "https://github.com/khoek/howzat"
 
+keywords = ["polyhedra", "geometry", "construction", "convex", "hull"]
 [lib]
 name = "hullabaloo_geom"
 path = "src/lib.rs"

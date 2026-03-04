@@ -8,6 +8,7 @@ readme = "README.md"
 publish = true
 repository = "https://github.com/khoek/howzat"
 
+keywords = ["howzat", "ffi", "c", "polyhedra", "geometry"]
 [lib]
 crate-type = ["cdylib", "staticlib"]
 

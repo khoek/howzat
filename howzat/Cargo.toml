@@ -7,6 +7,7 @@ description = "Dynamic double-description and LRS-backed polyhedral conversion w
 readme = "README.md"
 repository = "https://github.com/khoek/howzat"
 
+keywords = ["polyhedra", "geometry", "convex", "enumeration", "optimization"]
 [features]
 default = ["rug", "dashu", "simd"]
 rug = ["calculo/rug"]

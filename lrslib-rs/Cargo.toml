@@ -7,6 +7,7 @@ description = "Idiomatic Rust bindings around lrslib."
 readme = "README.md"
 repository = "https://github.com/khoek/howzat"
 
+keywords = ["lrslib", "ffi", "bindings", "polyhedra", "geometry"]
 [lib]
 name = "lrslib_rs"
 path = "src/lib.rs"

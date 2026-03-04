@@ -9,6 +9,7 @@ publish = true
 repository = "https://github.com/khoek/howzat"
 exclude = ["dist/**"]
 
+keywords = ["howzat", "ffi", "python", "pyo3", "polyhedra"]
 [lib]
 crate-type = ["cdylib"]
 

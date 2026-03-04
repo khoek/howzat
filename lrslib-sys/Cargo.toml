@@ -9,6 +9,7 @@ build = "build.rs"
 readme = "README.md"
 repository = "https://github.com/khoek/howzat"
 
+keywords = ["lrslib", "ffi", "bindings", "sys", "polyhedra"]
 [lib]
 name = "lrslib_sys"
 path = "src/lib.rs"

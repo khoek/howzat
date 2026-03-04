@@ -7,6 +7,7 @@ description = "Idiomatic Rust bindings around the Parma Polyhedra Library (PPL).
 readme = "README.md"
 repository = "https://github.com/khoek/howzat"
 
+keywords = ["ppl", "ffi", "bindings", "polyhedra", "geometry"]
 [lib]
 name = "ppl_rs"
 path = "src/lib.rs"

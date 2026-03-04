@@ -8,6 +8,7 @@ readme = "README.md"
 publish = true
 repository = "https://github.com/khoek/howzat"
 
+keywords = ["howzat", "polyhedra", "backend", "parser", "geometry"]
 [features]
 default = []
 pic = ["cddlib-rs/pic", "ppl-rs/pic"]
