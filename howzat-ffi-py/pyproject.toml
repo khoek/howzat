@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "howzat"
-version = "0.3.0"
+dynamic = ["version"]
 description = "High-performance polytope backends via Rust FFI bindings to howzat"
 readme = "README.md"
 license = { file = "LICENSE" }

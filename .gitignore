@@ -1,3 +1,4 @@
 /target/
 **/target/
+howzat-ffi-py/dist/
 *.rs.bk
