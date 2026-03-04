@@ -117,13 +117,18 @@ jobs:
       - name: Install system dependencies (Linux)
         if: runner.os == 'Linux'
         run: |
+          set -euo pipefail
           sudo apt-get update
+          alsa_pkg=libasound2
+          if apt-cache show libasound2t64 >/dev/null 2>&1; then
+            alsa_pkg=libasound2t64
+          fi
           sudo apt-get install -y \
             autoconf \
             automake \
             build-essential \
             clang \
-            libasound2 \
+            "${alsa_pkg}" \
             libatk-bridge2.0-0 \
             libcairo2 \
             libcups2 \
