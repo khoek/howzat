@@ -26,8 +26,13 @@ print(res.inequalities)  # numpy.ndarray[float64] (row-major, shape=(m, d+1))
 
 `input` must be a contiguous (C-order) 2D `numpy.ndarray`.
 
-- `repr=howzat.Representation.Generator` (default): `input` has shape `(n, d)` (vertex coordinates).
+- `repr=howzat.Representation.EuclideanVertices` (default): `input` has shape `(n, d)` (vertex coordinates).
+- `repr=howzat.Representation.HomogeneousGenerators`: `input` has shape `(n, d+1)` (homogeneous generator rows).
 - `repr=howzat.Representation.Inequality`: `input` has shape `(m, d+1)` (H-rep rows `(b, a...)`).
+
+`howzat.solve(...)` accepts `float64` arrays.
+`howzat.solve_exact(...)` accepts `int64` arrays or `dtype=object` arrays containing exact rationals
+(e.g. `fractions.Fraction` objects).
 
 ### Backends
 
@@ -60,15 +65,15 @@ Supported `KIND[:SPEC]` forms:
 
 ### API
 
-- `howzat.solve(input, repr=Representation.Generator) -> SolveResult`
+- `howzat.solve(input, repr=Representation.EuclideanVertices) -> SolveResult`
   Convenience function which uses the default backend (`howzat-dd[purify[snap]]:f64[eps[1e-12]]`).
-- `howzat.solve_exact(input, repr=Representation.Generator) -> SolveResult`
+- `howzat.solve_exact(input, repr=Representation.EuclideanVertices) -> SolveResult`
   Convenience function which uses the default exact backend (`howzat-dd:gmprat`).
 - `howzat.Backend(spec: str | None = None)`
   Loads the specified backend; `None` selects the default.
-- `Backend.solve(input, repr=Representation.Generator) -> SolveResult`
+- `Backend.solve(input, repr=Representation.EuclideanVertices) -> SolveResult`
   Runs the backend.
-- `Backend.solve_exact(input, repr=Representation.Generator) -> SolveResult`
+- `Backend.solve_exact(input, repr=Representation.EuclideanVertices) -> SolveResult`
   Runs the backend in exact mode (`int64`); errors if the backend is not exact.
 
 #### SolveResult
@@ -84,12 +89,13 @@ A `SolveResult` has the fields:
 - `vertex_adjacency: DenseGraph | AdjacencyList` vertex adjacency graph (dense or sparse)
 - `facets_to_vertices: list[list[int]]` for each facet, the incident vertex indices
 - `facet_adjacency: DenseGraph | AdjacencyList` facet adjacency graph (FR graph; dense or sparse)
-- `generators`: V-representation coefficients (row-major, shape `(n, d+1)`)
-- `inequalities`: H-representation coefficients (row-major, shape `(m, d+1)`)
+- `generators`: `numpy.ndarray[float64] | list[list[str]] | None`
+- `inequalities`: `numpy.ndarray[float64] | list[list[str]] | None`
 - `fails: int` backend-specific failure count (pipeline dependent)
 - `fallbacks: int` backend-specific fallback count (pipeline dependent)
 
-For `solve_exact(...)`, the coefficient matrices are returned as `list[list[str]]` (exact strings).
+For exact rational solves (`solve_exact(...)` with exact backend input), coefficient matrices are returned
+as `list[list[str]]` (exact strings).
 
 Both graph types support:
 - `node_count() -> int`
