@@ -1,6 +1,6 @@
 [package]
 name = "howzat-ffi-c"
-version = "0.3.8"
+version = "0.3.9"
 edition = "2024"
 license = "AGPL-3.0-only"
 description = "C bindings for howzat backend runner APIs."
@@ -17,7 +17,7 @@ default = []
 use-system-gmp = ["howzat-kit/use-system-gmp"]
 
 [dependencies]
-howzat-kit = { path = "../howzat-kit", version = "0.3.8", features = ["pic"] }
+howzat-kit = { path = "../howzat-kit", version = "0.3.9", features = ["pic"] }
 hullabaloo = { package = "hullabaloo-core", path = "../hullabaloo-core", version = "0.3" }
 calculo = { version = "0.3" }
 

@@ -1,6 +1,6 @@
 [package]
 name = "howzat"
-version = "0.3.8"
+version = "0.3.9"
 edition = "2024"
 license = "AGPL-3.0-only"
 description = "Dynamic double-description and LRS-backed polyhedral conversion with state-of-the-art performance."
