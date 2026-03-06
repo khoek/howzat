@@ -217,7 +217,7 @@ impl bindgen::callbacks::ParseCallbacks for CddLinkNameCallbacks {
         if !is_cddlib_symbol(item_info.name) || !self.has_symbol(item_info.name) {
             return None;
         }
-        Some(format!("{}{}", self.prefix, item_info.name))
+        Some(prefixed_link_name(item_info.name, self.prefix))
     }
 }
 
@@ -417,6 +417,13 @@ fn prefixed_symbol_name(symbol: &str, prefix: &str) -> String {
         if let Some(stripped) = symbol.strip_prefix('_') {
             return format!("_{prefix}{stripped}");
         }
+    }
+    format!("{prefix}{symbol}")
+}
+
+fn prefixed_link_name(symbol: &str, prefix: &str) -> String {
+    if target_is_macos() {
+        return format!("_{prefix}{symbol}");
     }
     format!("{prefix}{symbol}")
 }
