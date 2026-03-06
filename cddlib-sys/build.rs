@@ -214,10 +214,17 @@ impl bindgen::callbacks::ParseCallbacks for CddLinkNameCallbacks {
         &self,
         item_info: bindgen::callbacks::ItemInfo<'_>,
     ) -> Option<String> {
-        if !is_cddlib_symbol(item_info.name) || !self.symbols.contains(item_info.name) {
+        if !is_cddlib_symbol(item_info.name) || !self.has_symbol(item_info.name) {
             return None;
         }
         Some(format!("{}{}", self.prefix, item_info.name))
+    }
+}
+
+impl CddLinkNameCallbacks {
+    fn has_symbol(&self, name: &str) -> bool {
+        self.symbols.contains(name)
+            || (target_is_macos() && self.symbols.contains(&format!("_{name}")))
     }
 }
 
@@ -347,7 +354,8 @@ fn prefix_archive_symbols(input: &Path, output: &Path, prefix: &str, symbols: &B
         )
     });
     for symbol in symbols {
-        writeln!(file, "{symbol} {prefix}{symbol}")
+        let renamed = prefixed_symbol_name(symbol, prefix);
+        writeln!(file, "{symbol} {renamed}")
             .unwrap_or_else(|e| panic!("failed to write {}: {e}", redefine_path.display()));
     }
 
@@ -374,7 +382,6 @@ fn prefix_archive_symbols(input: &Path, output: &Path, prefix: &str, symbols: &B
 }
 
 fn defined_symbols(archive: &Path) -> BTreeSet<String> {
-    let target_is_macos = env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("macos");
     let output = Command::new(nm_tool())
         .arg("-g")
         .arg("--defined-only")
@@ -400,20 +407,26 @@ fn defined_symbols(archive: &Path) -> BTreeSet<String> {
             continue;
         };
         symbols.insert(symbol.to_string());
-        // Mach-O `nm` reports C symbols with a leading underscore.
-        // Bindgen callback item names do not include that underscore.
-        if target_is_macos {
-            if let Some(stripped) = symbol.strip_prefix('_') {
-                symbols.insert(stripped.to_string());
-            }
-        }
     }
 
     symbols
 }
 
+fn prefixed_symbol_name(symbol: &str, prefix: &str) -> String {
+    if target_is_macos() {
+        if let Some(stripped) = symbol.strip_prefix('_') {
+            return format!("_{prefix}{stripped}");
+        }
+    }
+    format!("{prefix}{symbol}")
+}
+
+fn target_is_macos() -> bool {
+    env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("macos")
+}
+
 fn objcopy_tool() -> &'static str {
-    if env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("macos") {
+    if target_is_macos() {
         require_tool("llvm-objcopy");
         return "llvm-objcopy";
     }
@@ -421,7 +434,7 @@ fn objcopy_tool() -> &'static str {
 }
 
 fn nm_tool() -> &'static str {
-    if env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("macos") {
+    if target_is_macos() {
         require_tool("llvm-nm");
         return "llvm-nm";
     }

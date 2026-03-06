@@ -171,6 +171,16 @@ jobs:
           else
             maturin build --profile release-lto --out dist
           fi
+      - name: Smoke test wheel import
+        shell: bash
+        working-directory: howzat-ffi-py
+        run: |
+          python3 -m pip install --force-reinstall --no-deps dist/howzat-*.whl
+          python3 - <<'PY'
+          import howzat
+
+          print(howzat.__file__)
+          PY
       - uses: actions/upload-artifact@v4
         with:
           name: wheels-${{ matrix.os }}-py${{ matrix.python-version }}
