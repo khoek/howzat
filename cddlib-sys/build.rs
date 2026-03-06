@@ -374,6 +374,7 @@ fn prefix_archive_symbols(input: &Path, output: &Path, prefix: &str, symbols: &B
 }
 
 fn defined_symbols(archive: &Path) -> BTreeSet<String> {
+    let target_is_macos = env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("macos");
     let output = Command::new(nm_tool())
         .arg("-g")
         .arg("--defined-only")
@@ -399,6 +400,13 @@ fn defined_symbols(archive: &Path) -> BTreeSet<String> {
             continue;
         };
         symbols.insert(symbol.to_string());
+        // Mach-O `nm` reports C symbols with a leading underscore.
+        // Bindgen callback item names do not include that underscore.
+        if target_is_macos {
+            if let Some(stripped) = symbol.strip_prefix('_') {
+                symbols.insert(stripped.to_string());
+            }
+        }
     }
 
     symbols
