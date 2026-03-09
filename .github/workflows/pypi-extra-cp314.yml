@@ -1,0 +1,203 @@
+name: pypi-extra-cp314
+
+on:
+  push:
+    tags:
+      - "howzat-v*"
+  workflow_dispatch:
+    inputs:
+      checkout_ref:
+        description: "Git ref to build (tag, branch, or SHA). Empty uses the triggering ref."
+        required: false
+        type: string
+      publish_to_pypi:
+        description: "Upload the built 3.14 wheels to PyPI."
+        required: true
+        default: true
+        type: boolean
+
+env:
+  RUSTFLAGS: ""
+
+permissions:
+  contents: read
+
+jobs:
+  validate-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.checkout_ref || github.ref }}
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Validate release metadata
+        env:
+          CHECKED_OUT_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.checkout_ref || github.ref }}
+        run: |
+          python3 - <<'PY'
+          import os
+          import pathlib
+          import re
+          import sys
+          import tomllib
+
+          def load_toml(path: str) -> dict:
+              return tomllib.loads(pathlib.Path(path).read_text(encoding="utf-8"))
+
+          versions = {
+              "howzat": load_toml("howzat/Cargo.toml")["package"]["version"],
+              "howzat-kit": load_toml("howzat-kit/Cargo.toml")["package"]["version"],
+              "howzat-ffi-py": load_toml("howzat-ffi-py/Cargo.toml")["package"]["version"],
+          }
+          if len(set(versions.values())) != 1:
+              print(f"Version mismatch across crates: {versions}", file=sys.stderr)
+              raise SystemExit(1)
+
+          pyproject = load_toml("howzat-ffi-py/pyproject.toml")["project"]
+          if "version" in pyproject:
+              pyproject_version = pyproject["version"]
+              ffi_version = versions["howzat-ffi-py"]
+              if pyproject_version != ffi_version:
+                  print(
+                      f"pyproject version {pyproject_version} != Cargo version {ffi_version}",
+                      file=sys.stderr,
+                  )
+                  raise SystemExit(1)
+          else:
+              dynamic = pyproject.get("dynamic", [])
+              if "version" not in dynamic:
+                  print(
+                      "pyproject must define project.version or dynamic=['version']",
+                      file=sys.stderr,
+                  )
+                  raise SystemExit(1)
+
+          ref_name = os.environ["CHECKED_OUT_REF"]
+          match = re.fullmatch(r"(?:refs/tags/)?howzat-v(.+)", ref_name)
+          if match is not None:
+              tag_version = match.group(1)
+              ffi_version = versions["howzat-ffi-py"]
+              if tag_version != ffi_version:
+                  print(f"Tag version {tag_version} != package version {ffi_version}", file=sys.stderr)
+                  raise SystemExit(1)
+
+          print(f"Release metadata OK: {versions}")
+          PY
+
+  wheels:
+    needs: [validate-release]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: true
+      matrix:
+        os: [ubuntu-24.04, ubuntu-24.04-arm, macos-15-intel, macos-latest]
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.checkout_ref || github.ref }}
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - name: Install system dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          alsa_pkg=libasound2
+          if apt-cache show libasound2t64 >/dev/null 2>&1; then
+            alsa_pkg=libasound2t64
+          fi
+          sudo apt-get install -y \
+            autoconf \
+            automake \
+            build-essential \
+            clang \
+            "${alsa_pkg}" \
+            libatk-bridge2.0-0 \
+            libcairo2 \
+            libcups2 \
+            libclang-dev \
+            libgbm1 \
+            libnss3 \
+            libpango-1.0-0 \
+            libtool \
+            libxcomposite1 \
+            libxdamage1 \
+            libxfixes3 \
+            libxkbcommon0 \
+            libxrandr2 \
+            m4 \
+            pkg-config
+      - name: Install LLVM (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          xcode_toolchain="/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain"
+          xcode_libclang="${xcode_toolchain}/usr/lib/libclang.dylib"
+          brew install llvm
+          brew install autoconf automake libtool
+          echo "$(brew --prefix llvm)/bin" >> "$GITHUB_PATH"
+          if [[ -f /Library/Developer/CommandLineTools/usr/lib/libclang.dylib ]]; then
+            echo "LIBCLANG_PATH=/Library/Developer/CommandLineTools/usr/lib" >> "$GITHUB_ENV"
+          elif [[ -f "${xcode_libclang}" ]]; then
+            echo "LIBCLANG_PATH=$(dirname "${xcode_libclang}")" >> "$GITHUB_ENV"
+          else
+            echo "warning: libclang.dylib not found; relying on bindgen default lookup"
+          fi
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build wheel
+        shell: bash
+        working-directory: howzat-ffi-py
+        run: |
+          python3 -m pip install -U pip maturin numpy
+          rm -rf dist
+          if [ "${RUNNER_OS}" = "Linux" ]; then
+            maturin build --profile release-lto --out dist --compatibility pypi
+          else
+            maturin build --profile release-lto --out dist
+          fi
+      - name: Smoke test wheel import
+        shell: bash
+        working-directory: howzat-ffi-py
+        run: |
+          python3 -m pip install --force-reinstall --no-deps dist/howzat-*.whl
+          python3 - <<'PY'
+          import howzat
+
+          print(howzat.__file__)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.os }}-py3.14
+          path: howzat-ffi-py/dist/*
+          if-no-files-found: error
+
+  publish:
+    needs: [wheels]
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.publish_to_pypi) }}
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      PYPI_API_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          pattern: wheels-*-py3.14
+          path: dist
+          merge-multiple: true
+      - name: Publish supplemental wheels to PyPI (trusted publisher)
+        if: ${{ env.PYPI_API_TOKEN == '' }}
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist
+          skip-existing: true
+      - name: Publish supplemental wheels to PyPI (API token)
+        if: ${{ env.PYPI_API_TOKEN != '' }}
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist
+          password: ${{ env.PYPI_API_TOKEN }}
+          skip-existing: true
