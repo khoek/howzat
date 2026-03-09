@@ -1,4 +1,6 @@
 /target/
 **/target/
+.cargo/config
+.cargo/config.toml
 howzat-ffi-py/dist/
 *.rs.bk

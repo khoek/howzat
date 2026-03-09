@@ -129,6 +129,8 @@ checksum = "1e748733b7cbc798e1434b6ac524f0c1ff2ab456fe201501e6497c8417a4fc33"
 [[package]]
 name = "calculo"
 version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5f04484e5778dd4bb00dad607466d2a824c04199cb07b945e0c1538d29da3cdb"
 dependencies = [
  "ahash",
  "dashu-base",
@@ -2017,6 +2019,8 @@ dependencies = [
 [[package]]
 name = "syntheon"
 version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "04d93f355e7eba48107bd9e8f93abf2253b3068dc89261645ddcf90db76d2a3f"
 dependencies = [
  "flate2",
  "fs2",
