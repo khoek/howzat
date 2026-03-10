@@ -16,7 +16,7 @@ simd = ["calculo/simd", "hullabaloo/simd"]
 
 [dependencies]
 hullabaloo = { workspace = true }
-calculo = { version = "0.3", default-features = false }
+calculo = { workspace = true }
 
 ahash = "0.8"
 smallvec = "1"

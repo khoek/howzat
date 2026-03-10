@@ -22,7 +22,7 @@ use-system-gmp = ["ppl-sys/use-system-gmp"]
 [dependencies]
 ppl-sys = { workspace = true }
 hullabaloo = { workspace = true, features = ["simd"] }
-calculo = { version = "0.3", default-features = false, features = ["rug"] }
+calculo = { workspace = true, features = ["rug"] }
 
 thiserror = "2"
 libc = "0.2"

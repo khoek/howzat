@@ -29,8 +29,10 @@ lrslib-sys = { path = "lrslib-sys", version = "0.3" }
 ppl-rs = { path = "ppl-rs", version = "0.3", default-features = false }
 ppl-sys = { path = "ppl-sys", version = "0.3", default-features = false }
 
+calculo = { version = "0.3.3" }
+syntheon = { version = "0.3.2" }
+
 bindgen = "0.72"
-syntheon = { version = "0.3" }
 
 [profile.release-debug]
 inherits = "release"

@@ -20,7 +20,7 @@ use-system-gmp = ["lrslib-sys/use-system-gmp"]
 [dependencies]
 lrslib-sys = { workspace = true }
 hullabaloo = { workspace = true, features = ["simd"] }
-calculo = { version = "0.3", default-features = false, features = ["rug"] }
+calculo = { workspace = true, features = ["rug"] }
 
 gmp-mpfr-sys = { version = "1", default-features = false, optional = true }
 thiserror = "2"

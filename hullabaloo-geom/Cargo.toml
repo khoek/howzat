@@ -19,7 +19,7 @@ serde = ["hullabaloo-core/serde"]
 
 [dependencies]
 hullabaloo-core = { workspace = true }
-calculo = { version = "0.3", default-features = false }
+calculo = { workspace = true }
 
 [dev-dependencies]
 cddlib-rs = { workspace = true }

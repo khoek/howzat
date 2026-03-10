@@ -19,7 +19,7 @@ use-system-gmp = ["howzat-kit/use-system-gmp"]
 [dependencies]
 howzat-kit = { workspace = true, features = ["pic"] }
 hullabaloo = { workspace = true, features = ["simd"] }
-calculo = { version = "0.3" }
+calculo = { workspace = true }
 
 gmp-mpfr-sys = { version = "1", default-features = false }
 rug = { version = "1", default-features = false, features = ["integer", "rational", "std"] }
