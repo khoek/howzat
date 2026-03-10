@@ -15,14 +15,14 @@ dashu = ["calculo/dashu"]
 simd = ["calculo/simd", "hullabaloo/simd"]
 
 [dependencies]
-hullabaloo = { package = "hullabaloo-core", path = "../hullabaloo-core", version = "0.3", default-features = false }
+hullabaloo = { workspace = true }
 calculo = { version = "0.3", default-features = false }
 
 ahash = "0.8"
 smallvec = "1"
 
 [dev-dependencies]
-cddlib-rs = { path = "../cddlib-rs", version = "0.3" }
+cddlib-rs = { workspace = true }
 
 rstest = "0.26"
 anyhow = "1"

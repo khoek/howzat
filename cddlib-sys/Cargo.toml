@@ -27,6 +27,6 @@ default = ["f64", "gmp", "gmprational"]
 gmp-mpfr-sys = { version = "1", default-features = false, optional = true, features = ["c-no-tests"] }
 
 [build-dependencies]
-syntheon = { version = "0.3" }
+syntheon = { workspace = true }
 
-bindgen = "0.72"
+bindgen = { workspace = true }

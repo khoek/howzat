@@ -20,11 +20,11 @@ use-system-gmp = [
 ]
 
 [dependencies]
-howzat = { path = "../howzat", version = "0.3.9" }
-hullabaloo = { package = "hullabaloo-core", path = "../hullabaloo-core", version = "0.3", features = ["serde"] }
-cddlib-rs = { path = "../cddlib-rs", version = "0.3", features = ["gmprational"] }
-lrslib-rs = { path = "../lrslib-rs", version = "0.3", features = ["gmp"] }
-ppl-rs = { path = "../ppl-rs", version = "0.3", default-features = false, features = ["gmp"] }
+howzat = { workspace = true }
+hullabaloo = { workspace = true, features = ["serde", "simd"] }
+cddlib-rs = { workspace = true, features = ["gmprational"] }
+lrslib-rs = { workspace = true, features = ["gmp"] }
+ppl-rs = { workspace = true, features = ["gmp"] }
 calculo = { version = "0.3" }
 
 gmp-mpfr-sys = { version = "1", default-features = false, optional = true, features = ["use-system-libs"] }

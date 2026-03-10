@@ -18,8 +18,8 @@ default = []
 use-system-gmp = ["howzat-kit/use-system-gmp"]
 
 [dependencies]
-howzat-kit = { path = "../howzat-kit", version = "0.3.9", features = ["pic"] }
-hullabaloo = { package = "hullabaloo-core", path = "../hullabaloo-core", version = "0.3" }
+howzat-kit = { workspace = true, features = ["pic"] }
+hullabaloo = { workspace = true, features = ["simd"] }
 calculo = { version = "0.3" }
 
 numpy = "0.28"

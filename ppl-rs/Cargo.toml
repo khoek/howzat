@@ -20,8 +20,8 @@ pic = ["ppl-sys/pic"]
 use-system-gmp = ["ppl-sys/use-system-gmp"]
 
 [dependencies]
-ppl-sys = { path = "../ppl-sys", version = "0.3", default-features = false }
-hullabaloo = { package = "hullabaloo-core", path = "../hullabaloo-core", version = "0.3" }
+ppl-sys = { workspace = true }
+hullabaloo = { workspace = true, features = ["simd"] }
 calculo = { version = "0.3", default-features = false, features = ["rug"] }
 
 thiserror = "2"

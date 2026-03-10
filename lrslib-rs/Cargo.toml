@@ -18,8 +18,8 @@ gmp = ["dep:gmp-mpfr-sys", "lrslib-sys/gmp"]
 use-system-gmp = ["lrslib-sys/use-system-gmp"]
 
 [dependencies]
-lrslib-sys = { path = "../lrslib-sys", version = "0.3" }
-hullabaloo = { package = "hullabaloo-core", path = "../hullabaloo-core", version = "0.3" }
+lrslib-sys = { workspace = true }
+hullabaloo = { workspace = true, features = ["simd"] }
 calculo = { version = "0.3", default-features = false, features = ["rug"] }
 
 gmp-mpfr-sys = { version = "1", default-features = false, optional = true }
@@ -28,4 +28,4 @@ libc = "0.2"
 rug = { version = "1", default-features = false, features = ["integer", "std"] }
 
 [dev-dependencies]
-cddlib-rs = { path = "../cddlib-rs", version = "0.3", features = ["gmprational"] }
+cddlib-rs = { workspace = true, features = ["gmprational"] }
