@@ -51,6 +51,14 @@ impl Backend {
             Backend::GmpFloat | Backend::GmpRational => LibFlavor::Gmp,
         }
     }
+
+    fn arithmetic_define(self) -> Option<&'static str> {
+        match self {
+            Backend::F64 => None,
+            Backend::GmpFloat => Some("GMPFLOAT"),
+            Backend::GmpRational => Some("GMPRATIONAL"),
+        }
+    }
 }
 
 fn enabled_backends() -> Vec<Backend> {
@@ -173,14 +181,8 @@ typedef __UINT64_TYPE__ uint64_t;\n\
             builder = builder.clang_arg(arg);
         }
         builder = builder.clang_arg(format!("-I{}", include_root.display()));
-        match backend {
-            Backend::F64 => {}
-            Backend::GmpFloat => {
-                builder = builder.clang_arg("-DGMPFLOAT");
-            }
-            Backend::GmpRational => {
-                builder = builder.clang_arg("-DGMPRATIONAL");
-            }
+        if let Some(define) = backend.arithmetic_define() {
+            builder = builder.clang_arg(format!("-D{define}"));
         }
 
         let bindings = builder
@@ -233,7 +235,7 @@ fn build_tools(layout: &CddLayout, backend: Backend, install_dir: &Path) {
     let bin_dir = install_dir.join("bin");
     fs::create_dir_all(&bin_dir).expect("failed to create cddlib tools directory");
     let compiler = env::var("CC").unwrap_or_else(|_| "cc".to_string());
-    let include_dir = install_dir.join("include");
+    let include_dir = install_dir.join("include").join("cddlib");
     let cdd_lib_dir = cddlib_lib_dir(install_dir, backend);
     let mut base_args = vec![
         "-O2".to_string(),
@@ -246,6 +248,9 @@ fn build_tools(layout: &CddLayout, backend: Backend, install_dir: &Path) {
             base_args.push(format!("-I{}", gmp_include_dir.display()));
             base_args.push(format!("-L{}", gmp_lib_dir.display()));
         }
+    }
+    if let Some(define) = backend.arithmetic_define() {
+        base_args.push(format!("-D{define}"));
     }
     let libs: Vec<String> = match backend {
         Backend::F64 => vec!["-lcdd".to_string()],

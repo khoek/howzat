@@ -22,6 +22,6 @@ howzat-kit = { workspace = true, features = ["pic"] }
 hullabaloo = { workspace = true, features = ["simd"] }
 calculo = { workspace = true }
 
-numpy = "0.28"
-pyo3 = { version = "0.28", features = ["extension-module"] }
+numpy = "0.29"
+pyo3 = { version = "0.29", features = ["extension-module"] }
 rug = { version = "1", default-features = false, features = ["integer", "rational", "std"] }

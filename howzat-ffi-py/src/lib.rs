@@ -1,14 +1,14 @@
 use std::sync::OnceLock;
 
-use howzat_kit::{BackendGeometry, BackendRunAny, BackendRunConfig};
 use howzat_kit::backend::{AnyPolytopeCoefficients, CoefficientMatrix};
+use howzat_kit::{BackendGeometry, BackendRunAny, BackendRunConfig};
 use hullabaloo::AdjacencyList;
 use hullabaloo::set_family::{ListFamily, SetFamily};
 use numpy::IntoPyArray;
 use numpy::PyReadonlyArray2;
 use pyo3::exceptions::{PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
-use pyo3::types::{PyAnyMethods, PyInt};
+use pyo3::types::{PyAnyMethods, PyBytes, PyBytesMethods, PyInt};
 use rug::integer::Order;
 
 const DEFAULT_BACKEND_SPEC: &str = "howzat-dd[purify[snap]]:f64[eps[1e-12]]";
@@ -264,13 +264,20 @@ fn coefficients_to_py(
     fn matrix_to_py(py: Python<'_>, matrix: CoefficientMatrix) -> PyResult<Py<PyAny>> {
         match matrix {
             CoefficientMatrix::F64(m) => {
-                let a = numpy::ndarray::Array2::from_shape_vec((m.rows, m.cols), m.data)
-                    .map_err(|e| PyRuntimeError::new_err(format!("internal: coefficient reshape failed: {e}")))?;
+                let a = numpy::ndarray::Array2::from_shape_vec((m.rows, m.cols), m.data).map_err(
+                    |e| {
+                        PyRuntimeError::new_err(format!(
+                            "internal: coefficient reshape failed: {e}"
+                        ))
+                    },
+                )?;
                 Ok(a.into_pyarray(py).to_owned().into_any().into())
             }
             CoefficientMatrix::RugRat(_) | CoefficientMatrix::DashuRat(_) => {
                 let m = matrix.stringify().map_err(|_| {
-                    PyRuntimeError::new_err("coefficient matrix could not be coerced to rug::Rational")
+                    PyRuntimeError::new_err(
+                        "coefficient matrix could not be coerced to rug::Rational",
+                    )
                 })?;
                 let mut out: Vec<Vec<String>> = Vec::with_capacity(m.rows);
                 let mut iter = m.data.into_iter();
@@ -285,9 +292,13 @@ fn coefficients_to_py(
                 let m = matrix.coerce::<f64>().map_err(|_| {
                     PyRuntimeError::new_err("coefficient matrix could not be coerced to float64")
                 })?;
-                let a = numpy::ndarray::Array2::from_shape_vec((m.rows, m.cols), m.data).map_err(|e| {
-                    PyRuntimeError::new_err(format!("internal: coefficient reshape failed: {e}"))
-                })?;
+                let a = numpy::ndarray::Array2::from_shape_vec((m.rows, m.cols), m.data).map_err(
+                    |e| {
+                        PyRuntimeError::new_err(format!(
+                            "internal: coefficient reshape failed: {e}"
+                        ))
+                    },
+                )?;
                 Ok(a.into_pyarray(py).to_owned().into_any().into())
             }
         }
@@ -422,8 +433,7 @@ impl SolveInput for f64 {
 impl SolveInput for i64 {
     const EMPTY_ERROR_GEN: &'static str = "input must be a non-empty 2D int64 array";
     const EMPTY_ERROR_INEQ: &'static str = "input must be a non-empty 2D int64 array";
-    const CONTIG_ERROR: &'static str =
-        "input must be a contiguous (C-order) 2D int64 numpy array";
+    const CONTIG_ERROR: &'static str = "input must be a contiguous (C-order) 2D int64 numpy array";
 
     fn solve_row_major(
         backend: &howzat_kit::Backend,
@@ -470,16 +480,14 @@ fn solve_backend<T: SolveInput>(
 
     let run = py
         .detach(|| match repr {
-            SolveRepresentation::EuclideanVertices => {
-                T::solve_row_major(
-                    backend,
-                    howzat_kit::Representation::EuclideanVertices,
-                    slice,
-                    rows,
-                    cols,
-                    &config,
-                )
-            }
+            SolveRepresentation::EuclideanVertices => T::solve_row_major(
+                backend,
+                howzat_kit::Representation::EuclideanVertices,
+                slice,
+                rows,
+                cols,
+                &config,
+            ),
             SolveRepresentation::HomogeneousGenerators => {
                 if cols < 2 {
                     return Err("generator matrix must have at least 2 columns".to_string());
@@ -511,69 +519,22 @@ fn solve_backend<T: SolveInput>(
     build_solve_result_any(py, run)
 }
 
-fn py_any_to_int_u32_vec(long: &Bound<'_, PyInt>) -> PyResult<Vec<u32>> {
-    let py = long.py();
-
-    let n_bits = unsafe { pyo3::ffi::_PyLong_NumBits(long.as_ptr()) };
-    if n_bits == (-1isize as usize) {
-        return Err(pyo3::PyErr::fetch(py));
-    }
-    if n_bits == 0 {
-        return Ok(Vec::new());
-    }
-
-    let n_digits = (n_bits + 32) / 32;
-    let mut buffer: Vec<u32> = Vec::with_capacity(n_digits);
-    let status = unsafe {
-        pyo3::ffi::_PyLong_AsByteArray(
-            long.as_ptr().cast(),
-            buffer.as_mut_ptr().cast::<u8>(),
-            n_digits * 4,
-            1,
-            1,
-        )
-    };
-    if status == -1 {
-        return Err(pyo3::PyErr::fetch(py));
-    }
-    unsafe { buffer.set_len(n_digits) };
-    buffer.iter_mut().for_each(|chunk| *chunk = u32::from_le(*chunk));
-    Ok(buffer)
-}
-
-fn py_int_to_rug_integer(long: &Bound<'_, PyInt>) -> PyResult<rug::Integer> {
-    let mut buffer = py_any_to_int_u32_vec(long)?;
-    if buffer.last().copied().is_some_and(|last| last >> 31 != 0) {
-        let mut elements = buffer.iter_mut();
-        for element in elements.by_ref() {
-            *element = (!*element).wrapping_add(1);
-            if *element != 0 {
-                break;
-            }
-        }
-        for element in elements {
-            *element = !*element;
-        }
-
-        let mut out = rug::Integer::from_digits(&buffer, Order::Lsf);
-        out = -out;
-        Ok(out)
-    } else {
-        Ok(rug::Integer::from_digits(&buffer, Order::Lsf))
-    }
-}
-
 fn py_any_to_rug_integer(ob: &Bound<'_, PyAny>) -> PyResult<rug::Integer> {
-    let py = ob.py();
-    if let Ok(long) = ob.cast::<PyInt>() {
-        return py_int_to_rug_integer(long);
-    }
-
-    let owned: Bound<'_, PyInt> = unsafe {
-        Bound::from_owned_ptr_or_err(py, pyo3::ffi::PyNumber_Index(ob.as_ptr()))?
-    }
-    .cast_into()?;
-    py_int_to_rug_integer(&owned)
+    let integer: Bound<'_, PyInt> =
+        unsafe { Bound::from_owned_ptr_or_err(ob.py(), pyo3::ffi::PyNumber_Index(ob.as_ptr()))? }
+            .cast_into()?;
+    let negative = integer.lt(0)?;
+    let magnitude = if negative {
+        integer.abs()?
+    } else {
+        integer.into_any()
+    };
+    let n_bits: usize = magnitude.call_method0("bit_length")?.extract()?;
+    let bytes = magnitude
+        .call_method1("to_bytes", (n_bits.div_ceil(8), "little"))?
+        .cast_into::<PyBytes>()?;
+    let integer = rug::Integer::from_digits(bytes.as_bytes(), Order::Lsf);
+    Ok(if negative { -integer } else { integer })
 }
 
 fn getattr_call0_if_needed<'py>(ob: &Bound<'py, PyAny>, name: &str) -> PyResult<Bound<'py, PyAny>> {
@@ -591,7 +552,9 @@ fn py_any_to_rug_rat(ob: &Bound<'_, PyAny>) -> PyResult<calculo::num::RugRat> {
     let mut numer = py_any_to_rug_integer(&numer)?;
     let mut denom = py_any_to_rug_integer(&denom)?;
     if denom == 0 {
-        return Err(PyValueError::new_err("invalid rational: denominator is zero"));
+        return Err(PyValueError::new_err(
+            "invalid rational: denominator is zero",
+        ));
     }
     if denom < 0 {
         denom = -denom;
@@ -620,9 +583,9 @@ fn solve_backend_exact_gmprat(
         }));
     }
 
-    let slice = input
-        .as_slice()
-        .ok_or_else(|| PyValueError::new_err("input must be a contiguous (C-order) 2D object numpy array"))?;
+    let slice = input.as_slice().ok_or_else(|| {
+        PyValueError::new_err("input must be a contiguous (C-order) 2D object numpy array")
+    })?;
 
     let mut values: Vec<calculo::num::RugRat> = Vec::with_capacity(slice.len());
     for obj in slice {
@@ -636,7 +599,9 @@ fn solve_backend_exact_gmprat(
 
     let repr = match repr {
         SolveRepresentation::EuclideanVertices => howzat_kit::Representation::EuclideanVertices,
-        SolveRepresentation::HomogeneousGenerators => howzat_kit::Representation::HomogeneousGenerators,
+        SolveRepresentation::HomogeneousGenerators => {
+            howzat_kit::Representation::HomogeneousGenerators
+        }
         SolveRepresentation::Inequality => howzat_kit::Representation::Inequality,
     };
 
@@ -673,9 +638,9 @@ fn solve_exact(
     if let Ok(input) = input.extract::<PyReadonlyArray2<i64>>() {
         return solve_backend(py, default_exact_backend(), input, repr);
     }
-    let input: PyReadonlyArray2<Py<PyAny>> = input
-        .extract()
-        .map_err(|_| PyValueError::new_err("input must be a 2D int64 array or a 2D object array"))?;
+    let input: PyReadonlyArray2<Py<PyAny>> = input.extract().map_err(|_| {
+        PyValueError::new_err("input must be a 2D int64 array or a 2D object array")
+    })?;
     solve_backend_exact_gmprat(py, default_exact_backend(), input, repr)
 }
 
@@ -726,9 +691,9 @@ impl Backend {
         if let Ok(input) = input.extract::<PyReadonlyArray2<i64>>() {
             return solve_backend(py, &self.inner, input, repr);
         }
-        let input: PyReadonlyArray2<Py<PyAny>> = input
-            .extract()
-            .map_err(|_| PyValueError::new_err("input must be a 2D int64 array or a 2D object array"))?;
+        let input: PyReadonlyArray2<Py<PyAny>> = input.extract().map_err(|_| {
+            PyValueError::new_err("input must be a 2D int64 array or a 2D object array")
+        })?;
         solve_backend_exact_gmprat(py, &self.inner, input, repr)
     }
 }
