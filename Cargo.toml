@@ -17,22 +17,22 @@ members = [
 ]
 
 [workspace.dependencies]
-cddlib-rs = { path = "cddlib-rs", version = "0.3" }
+cddlib-rs = { path = "cddlib-rs", version = "0.4" }
 cddlib-sys = { path = "cddlib-sys", version = "0.3", default-features = false }
-howzat = { path = "howzat", version = "0.3" }
-howzat-kit = { path = "howzat-kit", version = "0.3" }
-hullabaloo = { package = "hullabaloo-core", path = "hullabaloo-core", version = "0.3", default-features = false }
-hullabaloo-core = { path = "hullabaloo-core", version = "0.3", default-features = false }
-hullabaloo-geom = { path = "hullabaloo-geom", version = "0.3", default-features = false }
-lrslib-rs = { path = "lrslib-rs", version = "0.3" }
+howzat = { path = "howzat", version = "0.4" }
+howzat-kit = { path = "howzat-kit", version = "0.4" }
+hullabaloo = { package = "hullabaloo-core", path = "hullabaloo-core", version = "0.4", default-features = false }
+hullabaloo-core = { path = "hullabaloo-core", version = "0.4", default-features = false }
+hullabaloo-geom = { path = "hullabaloo-geom", version = "0.4", default-features = false }
+lrslib-rs = { path = "lrslib-rs", version = "0.4" }
 lrslib-sys = { path = "lrslib-sys", version = "0.3" }
-ppl-rs = { path = "ppl-rs", version = "0.3", default-features = false }
+ppl-rs = { path = "ppl-rs", version = "0.4", default-features = false }
 ppl-sys = { path = "ppl-sys", version = "0.3", default-features = false }
 
-calculo = { version = "0.3" }
+calculo = { version = "0.4" }
 syntheon = { version = "0.3" }
 
-bindgen = "0.72"
+bindgen = { version = "0.73", default-features = false, features = ["logging", "runtime"] }
 
 [profile.release-debug]
 inherits = "release"
